@@ -46,7 +46,7 @@ class ParticleFilterNode(Node):
         ts.registerCallback(self._compute_pose_callback)
 
         # TODO: 2.1. Create the /pose publisher (PoseStamped message).
-
+        self._pose_publisher : rclpy.Publisher = self.create_publisher(PoseStamped, "/pose", 10) 
         # Constants
         SENSOR_RANGE = 1.0  # Ultrasonic sensor range [m]
 
@@ -161,7 +161,13 @@ class ParticleFilterNode(Node):
 
         """
         # TODO: 2.2. Complete the function body with your code (i.e., replace the pass statement).
-        pass
+        msg = PoseStamped()
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.pose.position.x = x_h
+        msg.pose.position.y = y_h
+        msg.pose.position.z = 0.0
+        msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w = euler2quat(0, 0, theta_h)
+        
 
 
 def main(args=None):
