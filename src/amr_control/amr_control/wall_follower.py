@@ -33,14 +33,14 @@ class WallFollower:
         v = 0.5
         w = 0.0
         Kp = 3
-        Ki = 0.5
-        Kd = 0.3
+        Ki = 2
+        Kd = 1.8
 
         # Clamp the ultrasonic readings to a maximum distance of 1.0 m.
         z_us = [min(z, 1.0) for z in z_us]
 
-        left = z_us[1]
-        right = z_us[6]
+        left = min(z_us[0], z_us[1])
+        right = min(z_us[6], z_us[7])
         
     
         error = left - right
@@ -54,7 +54,13 @@ class WallFollower:
         front = (z_us[3]+z_us[4])/2
         if front < 0.3:
             v = 0.0
-            w = 0.5
+            self._i_error = 0
+            self._prev_error = 0
+            w = error*8
+            # Woops we crashed, let's go back
+        if front < 0.2:
+            v = -0.1
+            w = - error*8
 
         self._prev_error = error
 
