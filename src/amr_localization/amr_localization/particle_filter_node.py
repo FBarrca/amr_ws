@@ -39,8 +39,9 @@ class ParticleFilterNode(Node):
 
         # Subscribers
         self._subscribers: list[message_filters.Subscriber] = []
-        self._subscribers.append(message_filters.Subscriber(self, Odometry, "odom"))
-        self._subscribers.append(message_filters.Subscriber(self, RangeScan, "us_scan"))
+        self._logger.info("Subscribing to /odom and /us_scan")
+        self._subscribers.append(message_filters.Subscriber(self, Odometry, "/odom"))
+        self._subscribers.append(message_filters.Subscriber(self, RangeScan, "/us_scan"))
 
         ts = message_filters.ApproximateTimeSynchronizer(self._subscribers, queue_size=10, slop=2)
         ts.registerCallback(self._compute_pose_callback)
@@ -143,6 +144,7 @@ class ParticleFilterNode(Node):
             z_w: Odometric estimate of the angular velocity of the robot center [rad/s].
         """
         start_time = time.perf_counter()
+        
         self._particle_filter.move(z_v, z_w)
         move_time = time.perf_counter() - start_time
 

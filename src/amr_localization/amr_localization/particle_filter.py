@@ -10,6 +10,7 @@ from matplotlib import pyplot as plt
 from typing import List, Tuple
 
 
+
 class ParticleFilter:
     """Particle filter implementation."""
 
@@ -98,10 +99,16 @@ class ParticleFilter:
         # TODO: 2.5. Complete the function body with your code (i.e., replace the pass statement).
         for i, particle in enumerate(self._particles):
             # Compute new particle pose
-            x = particle[0] + v * self._dt * math.cos(particle[2])
-            y = particle[1] + v * self._dt * math.sin(particle[2])
-            theta = particle[2] + w * self._dt
-            self._particles[i] = (x, y, theta)
+            x = particle[0] +  (v+np.random.normal(0, self._sigma_v))* self._dt * math.cos(particle[2])
+            y = particle[1] + (v+np.random.normal(0, self._sigma_w)) * self._dt * math.sin(particle[2])
+            theta = particle[2] + (w+np.random.normal(0, self._sigma_w)) * self._dt
+            intersection , distance = self._map.check_collision([particle[0], particle[1],particle[3]], [x, y,theta])
+            # Empty intersection means no collision
+            if not intersection:
+                self._particles[i] = (x, y, theta)
+            else:
+                self._particles[i] = intersection
+            
 
     def resample(self, measurements: List[float]) -> None:
         """Samples a new set of particles.
@@ -207,13 +214,15 @@ class ParticleFilter:
 
         """
         particles = np.empty((particle_count, 3), dtype=object)
+             # Get the bounds of the map 
 
+        x_min, y_min, x_max, y_max = self._map.bounds()
         # TODO: 2.4. Complete the missing function body with your code.
         
         # Ramdomly generate particles within the map
         for i in range(particle_count):
-            x = np.random.uniform(self._map.x_min, self._map.x_max)
-            y = np.random.uniform(self._map.y_min, self._map.y_max)
+            x = np.random.uniform(x_min, x_max)
+            y = np.random.uniform(y_min, y_max)
             theta = np.random.choice([0, np.pi / 2, np.pi, 3 * np.pi / 2])
             particles[i] = (x, y, theta)
 
@@ -251,17 +260,17 @@ class ParticleFilter:
         z_hat: List[float] = []
 
         # TODO: 2.6. Complete the missing function body with your code.
-        for ray in rays:
-            z = float("inf")
-            # Check for intersections with obstacles
-            for obstacle in self._map.obstacles:
-                # Compute the intersection of the ray with the obstacle
-                intersection = self._map.intersect(ray, obstacle)
-                if intersection:
-                    # Compute the distance from the particle to the intersection
-                    z = min(z, math.sqrt((particle[0] - intersection[0]) ** 2 + (particle[1] - intersection[1]) ** 2))
-            z_hat.append(z)
-
+        # for ray in rays:
+        #     z = float("inf")
+        #     # Check for intersections with obstacles
+        #     for obstacle in self._map.obstacles:
+        #         # Compute the intersection of the ray with the obstacle
+        #         intersection = self._map.intersect(ray, obstacle)
+        #         if intersection:
+        #             # Compute the distance from the particle to the intersection
+        #             z = min(z, math.sqrt((particle[0] - intersection[0]) ** 2 + (particle[1] - intersection[1]) ** 2))
+        #     z_hat.append(z)
+        
 
         return z_hat
 
