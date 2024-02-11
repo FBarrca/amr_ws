@@ -10,7 +10,6 @@ from matplotlib import pyplot as plt
 from typing import List, Tuple
 
 
-
 class ParticleFilter:
     """Particle filter implementation."""
 
@@ -69,21 +68,20 @@ class ParticleFilter:
         """
         localized: bool = False
         pose: Tuple[float, float, float] = (float("inf"), float("inf"), float("inf"))
-
+        # pose: Tuple[float, float, float] = (0.0, 0.0, 0.0)
         # TODO: 2.10. Complete the missing function body with your code.
         # Compute the clusters
         clustering = DBSCAN(eps=0.5, min_samples=10).fit(self._particles[:, :2])
         labels = clustering.labels_
         unique_labels = np.unique(labels)
-        # If there is only one cluster
-        # DANGER: No estoy seguro de que hacer si hay más de un cluster
+
+        # # If there is only one cluster
         if len(unique_labels) == 1:
             localized = True
             # Compute the pose estimate as the mean of the particles
             pose = np.mean(self._particles, axis=0)
             # Keep 100 particles for pose tracking
-            self._particle_count = 100
-
+            # self._particle_count = 100
         return localized, pose
 
     def move(self, v: float, w: float) -> None:
@@ -99,16 +97,20 @@ class ParticleFilter:
         # TODO: 2.5. Complete the function body with your code (i.e., replace the pass statement).
         for i, particle in enumerate(self._particles):
             # Compute new particle pose
-            x = particle[0] +  (v+np.random.normal(0, self._sigma_v))* self._dt * math.cos(particle[2])
-            y = particle[1] + (v+np.random.normal(0, self._sigma_w)) * self._dt * math.sin(particle[2])
-            theta = particle[2] + (w+np.random.normal(0, self._sigma_w)) * self._dt
-            intersection , distance = self._map.check_collision([particle[0], particle[1],particle[3]], [x, y,theta])
-            # Empty intersection means no collision
+            x = particle[0] + (v + np.random.normal(0, self._sigma_v)) * self._dt * math.cos(
+                particle[2]
+            )
+            y = particle[1] + (v + np.random.normal(0, self._sigma_w)) * self._dt * math.sin(
+                particle[2]
+            )
+            theta = particle[2] + (w + np.random.normal(0, self._sigma_w)) * self._dt
+            intersection, distance = self._map.check_collision(((particle[0], particle[1]), (x, y)))
+
             if not intersection:
                 self._particles[i] = (x, y, theta)
             else:
-                self._particles[i] = intersection
-            
+                self._particles[i] = (intersection[0], intersection[1], theta)
+        pass
 
     def resample(self, measurements: List[float]) -> None:
         """Samples a new set of particles.
@@ -118,13 +120,26 @@ class ParticleFilter:
 
         """
         # TODO: 2.9. Complete the function body with your code (i.e., replace the pass statement).
-        # We resample with replacement, so we can have repeated particles based on _measurement_probability
-        weights = [self._measurement_probability(measurements, particle) for particle in self._particles]
+        weights = [
+            self._measurement_probability(measurements, particle) for particle in self._particles
+        ]
         # Normalize the weights
         alphas = np.array(weights) / np.sum(weights)
-        # Resample the particles
-        self._particles = np.random.choice(self._particles, self._particle_count, p=alphas)
-        
+
+        # Cumulative sum of the weights
+        cumulative_sum = np.cumsum(alphas)
+        # Determine the positions of the indices to resample
+        positions = (np.arange(self._particle_count) + np.random.random()) / self._particle_count
+
+        indexes = np.zeros(self._particle_count, "i")
+        cumulative_index = 0
+        for i, pos in enumerate(positions):
+            while cumulative_sum[cumulative_index] < pos:
+                cumulative_index += 1
+            indexes[i] = cumulative_index
+
+        # Resample the particles according to the indexes
+        self._particles = self._particles[indexes]
 
     def plot(self, axes, orientation: bool = True):
         """Draws particles.
@@ -214,23 +229,22 @@ class ParticleFilter:
 
         """
         particles = np.empty((particle_count, 3), dtype=object)
-             # Get the bounds of the map 
-
         x_min, y_min, x_max, y_max = self._map.bounds()
         # TODO: 2.4. Complete the missing function body with your code.
-        
-        # Ramdomly generate particles within the map
         for i in range(particle_count):
-            x = np.random.uniform(x_min, x_max)
-            y = np.random.uniform(y_min, y_max)
+            while True:
+                x = np.random.uniform(x_min, x_max)
+                y = np.random.uniform(y_min, y_max)
+                if self._map.contains((x, y)):
+                    break
             theta = np.random.choice([0, np.pi / 2, np.pi, 3 * np.pi / 2])
+            # print(f"Particle {i}: ({x:.2f}, {y:.2f}, {theta:.2f})")
             particles[i] = (x, y, theta)
-
         return particles
 
     @staticmethod
     def _init_sensor_polar_coordinates(
-        sensors: List[Tuple[float, float, float]]
+        sensors: List[Tuple[float, float, float]],
     ) -> Tuple[List[float], List[float]]:
         """Converts the sensors' poses to polar coordinates wrt to the robot's coordinate frame.
 
@@ -260,18 +274,14 @@ class ParticleFilter:
         z_hat: List[float] = []
 
         # TODO: 2.6. Complete the missing function body with your code.
-        # for ray in rays:
-        #     z = float("inf")
-        #     # Check for intersections with obstacles
-        #     for obstacle in self._map.obstacles:
-        #         # Compute the intersection of the ray with the obstacle
-        #         intersection = self._map.intersect(ray, obstacle)
-        #         if intersection:
-        #             # Compute the distance from the particle to the intersection
-        #             z = min(z, math.sqrt((particle[0] - intersection[0]) ** 2 + (particle[1] - intersection[1]) ** 2))
-        #     z_hat.append(z)
-        
-
+        for ray in rays:
+            # Compute the intersection of the ray with the map.
+            intersection, distance = self._map.check_collision(ray, True)
+            # Compute the distance to the intersection point
+            if distance > self._sensor_range:
+                z_hat.append(float("inf"))
+            else:
+                z_hat.append(distance)
         return z_hat
 
     @staticmethod
@@ -288,14 +298,7 @@ class ParticleFilter:
 
         """
         # TODO: 2.7. Complete the function body (i.e., replace the code below).
-        if sigma > 0:
-            # Gaussian function https://www.investopedia.com/terms/n/normaldistribution.asp
-            return 1 / (sigma * math.sqrt(2 * math.pi)) * math.exp(-0.5 * ((x - mu) / sigma) ** 2)
-        else:
-            # If sigma is zero, return 1 if x is equal to mu, 0 otherwise
-            return 1 if x == mu else 0
-        
-        
+        return math.exp(-0.5 * ((x - mu) / sigma) ** 2)
 
     def _measurement_probability(
         self, measurements: List[float], particle: Tuple[float, float, float]
@@ -318,14 +321,15 @@ class ParticleFilter:
         probability = 1.0
 
         # TODO: 2.8. Complete the missing function body with your code.
+        # Predicted measurement
         z_hat = self._sense(particle)
-        # if a measurement is unavailable, it is replaced with 1.25 times the sensor range (1m = 1.25m)
-        # Hay que comprobar si realmente te devuelve "inf" o "inf" como string 
-        measurements = [z if z == "inf" else 1.25 * self._sensor_range for z in measurements]
-        for z, z_hat in zip(measurements, z_hat):
-            # Compute the probability of the measurement given the particle pose
-            probability *= self._gaussian(z_hat, self._sigma_z, z)
-            
+        # self._logger.info(f"z_hat:{z_hat}")
+        measurements = [
+            1.25 * self._sensor_range if z > self._sensor_range else z for z in measurements
+        ]
+        # Compare the predicted with the measure
+        for z, z_hat_i in zip(measurements, z_hat):
+            probability *= self._gaussian(z_hat_i, self._sigma_z, z)
         return probability
 
     def _sensor_rays(self, particle: Tuple[float, float, float]) -> List[List[Tuple[float, float]]]:

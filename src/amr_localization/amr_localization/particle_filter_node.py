@@ -38,16 +38,16 @@ class ParticleFilterNode(Node):
         world = self.get_parameter("world").get_parameter_value().string_value
 
         # Subscribers
-        self._subscribers: list[message_filters.Subscriber] = []
-        self._logger.info("Subscribing to /odom and /us_scan")
-        self._subscribers.append(message_filters.Subscriber(self, Odometry, "/odom"))
-        self._subscribers.append(message_filters.Subscriber(self, RangeScan, "/us_scan"))
+        self._subscribers2: list[message_filters.Subscriber] = []
+        self._subscribers2.append(message_filters.Subscriber(self, Odometry, "/odom"))
+        self._subscribers2.append(message_filters.Subscriber(self, RangeScan, "/us_scan"))
 
-        ts = message_filters.ApproximateTimeSynchronizer(self._subscribers, queue_size=10, slop=2)
+        ts = message_filters.ApproximateTimeSynchronizer(self._subscribers2, queue_size=10, slop=20)
         ts.registerCallback(self._compute_pose_callback)
 
         # TODO: 2.1. Create the /pose publisher (PoseStamped message).
-        self._pose_publisher : rclpy.Publisher = self.create_publisher(PoseStamped, "/pose", 10) 
+        self._pose_publisher = self.create_publisher(PoseStamped, "/pose", 10)
+
         # Constants
         SENSOR_RANGE = 1.0  # Ultrasonic sensor range [m]
 
@@ -103,7 +103,7 @@ class ParticleFilterNode(Node):
         self._execute_motion_step(z_v, z_w)
         x_h, y_h, theta_h = self._execute_measurement_step(z_us)
         self._steps += 1
-
+        print(f"Computed pose: {x_h}, {y_h}, {theta_h}")
         # Publish
         self._publish_pose_estimate(x_h, y_h, theta_h)
 
@@ -144,7 +144,6 @@ class ParticleFilterNode(Node):
             z_w: Odometric estimate of the angular velocity of the robot center [rad/s].
         """
         start_time = time.perf_counter()
-        
         self._particle_filter.move(z_v, z_w)
         move_time = time.perf_counter() - start_time
 
@@ -163,13 +162,23 @@ class ParticleFilterNode(Node):
 
         """
         # TODO: 2.2. Complete the function body with your code (i.e., replace the pass statement).
-        msg = PoseStamped()
-        msg.header.stamp = self.get_clock().now().to_msg()
-        msg.pose.position.x = x_h
-        msg.pose.position.y = y_h
-        msg.pose.position.z = 0.0
-        msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z, msg.pose.orientation.w = euler2quat(0, 0, theta_h)
-        
+        pose_msg = PoseStamped()
+        pose_msg.header.stamp = self.get_clock().now().to_msg()
+        pose_msg.header.frame_id = "map"
+        pose_msg.pose.position.x = x_h
+        pose_msg.pose.position.y = y_h
+        pose_msg.pose.position.z = 0.0
+        print(f"theta_h: {theta_h}")
+        try:
+            quat = euler2quat(0, 0, theta_h)
+        except:
+            quat = euler2quat(0, 0, 0)
+        pose_msg.pose.orientation.x = quat[0]
+        pose_msg.pose.orientation.y = quat[1]
+        pose_msg.pose.orientation.z = quat[2]
+        pose_msg.pose.orientation.w = quat[3]
+        self._pose_publisher.publish(pose_msg)
+        pass
 
 
 def main(args=None):

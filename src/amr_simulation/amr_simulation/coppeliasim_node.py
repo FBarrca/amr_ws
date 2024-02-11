@@ -18,7 +18,7 @@ class CoppeliaSimNode(Node):
     def __init__(self):
         """Simulator node initializer."""
         super().__init__("coppeliasim")
-        
+
         # Parameters
         self.declare_parameter("dt", 0.05)
         dt = self.get_parameter("dt").get_parameter_value().double_value
@@ -38,17 +38,15 @@ class CoppeliaSimNode(Node):
 
         self.declare_parameter("start", (0.0, 0.0, 0.0))
         start = tuple(self.get_parameter("start").get_parameter_value().double_array_value.tolist())
-        
+
+        # TODO: 1.12. Subscribe to /cmd_vel. Connect it with with _next_step_callback.
         self._subscribers: list[message_filters.Subscriber] = []
         self._subscribers.append(message_filters.Subscriber(self, TwistStamped, "/cmd_vel"))
-        self.get_logger().info("Subscribing to /cmd_vel")
         # TODO: 2.3. Synchronize the /pose and /cmd_vel subscribers if enable_localization is True.
         if enable_localization:
-            self.get_logger().info("Subscribing to /pose")
             self._subscribers.append(message_filters.Subscriber(self, PoseStamped, "/pose"))
-        ts = message_filters.ApproximateTimeSynchronizer(self._subscribers, queue_size=10, slop=2)
+        ts = message_filters.ApproximateTimeSynchronizer(self._subscribers, queue_size=10, slop=20)
         ts.registerCallback(self._next_step_callback)
-       
         # TODO: 1.4. Create the /odom (Odometry message) and /us_scan (RangeScan) publishers.
         self._odom_pub = self.create_publisher(Odometry, "/odom", 10)
         self._us_scan_pub = self.create_publisher(RangeScan, "/us_scan", 10)
@@ -76,8 +74,6 @@ class CoppeliaSimNode(Node):
             pose_msg: Message containing the estimated robot pose.
 
         """
-        self.get_logger().info(f"Received cmd_vel: {cmd_vel_msg.twist.linear.x}, {cmd_vel_msg.twist.angular.z}")
-        self.get_logger().info(f"Received pose: {pose_msg.pose.position.x}, {pose_msg.pose.position.y}, {pose_msg.pose.orientation.w}, {pose_msg.pose.orientation.x}, {pose_msg.pose.orientation.y}, {pose_msg.pose.orientation.z}")
         # Check estimated pose
         self._check_estimated_pose(pose_msg)
 
@@ -194,7 +190,6 @@ class CoppeliaSimNode(Node):
         msg.twist.twist.angular.z = z_w
         self._odom_pub.publish(msg)
 
-
     def _publish_us(self, z_us: List[float]) -> None:
         """Publishes US measurements in a custom amr_msgs.msg.RangeScan message.
 
@@ -208,9 +203,7 @@ class CoppeliaSimNode(Node):
         msg.ranges = z_us
         msg.min_range = 0.0
         msg.max_range = 1.0
-        self._logger.info(f"US scan: {msg.ranges}")
         self._us_scan_pub.publish(msg)
-        
 
 
 def main(args=None):
