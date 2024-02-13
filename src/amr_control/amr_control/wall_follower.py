@@ -41,8 +41,7 @@ class WallFollower:
 
         left = min(z_us[0], z_us[1])
         right = min(z_us[6], z_us[7])
-        
-    
+
         error = left - right
         # Compute the integral of the error.
         self._i_error += error * self._dt
@@ -51,16 +50,16 @@ class WallFollower:
         # Compute the control law.
         w = Kp * error + Ki * self._i_error + Kd * d_error
         # Check if the robot is too close to the wall.
-        front = (z_us[3]+z_us[4])/2
+        front = (z_us[3] + z_us[4]) / 2
         if front < 0.3:
             v = 0.0
             self._i_error = 0
             self._prev_error = 0
-            w = error*8
+            w = error * 8
             # Woops we crashed, let's go back
         if front < 0.2:
             v = -0.1
-            w = - error*8
+            w = -error * 8
 
         self._prev_error = error
 

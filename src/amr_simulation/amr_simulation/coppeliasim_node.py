@@ -40,6 +40,8 @@ class CoppeliaSimNode(Node):
         start = tuple(self.get_parameter("start").get_parameter_value().double_array_value.tolist())
 
         # TODO: 1.12. Subscribe to /cmd_vel. Connect it with with _next_step_callback.
+
+        
         self._subscribers: list[message_filters.Subscriber] = []
         self._subscribers.append(message_filters.Subscriber(self, TwistStamped, "/cmd_vel"))
         # TODO: 2.3. Synchronize the /pose and /cmd_vel subscribers if enable_localization is True.

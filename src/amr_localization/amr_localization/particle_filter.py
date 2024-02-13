@@ -123,6 +123,10 @@ class ParticleFilter:
         weights = [
             self._measurement_probability(measurements, particle) for particle in self._particles
         ]
+        # print the weights that are not 0
+        for i, w in enumerate(weights):
+            if w > 0:
+                print(f"Particle {i}: {w:.2f}")
         # Normalize the weights
         alphas = np.array(weights) / np.sum(weights)
 
@@ -327,6 +331,10 @@ class ParticleFilter:
         measurements = [
             1.25 * self._sensor_range if z > self._sensor_range else z for z in measurements
         ]
+        z_hat  = [
+            1.25 * self._sensor_range if z > self._sensor_range else z for z in z_hat
+        ]
+                
         # Compare the predicted with the measure
         for z, z_hat_i in zip(measurements, z_hat):
             probability *= self._gaussian(z_hat_i, self._sigma_z, z)
