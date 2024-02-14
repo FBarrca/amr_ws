@@ -71,17 +71,48 @@ class ParticleFilter:
 
         # TODO: 2.10. Complete the missing function body with your code.
         # Compute the clusters
-        clustering = DBSCAN(eps=0.5, min_samples=10).fit(self._particles[:, :2])
+        clustering = DBSCAN(eps=0.5, min_samples=10).fit(self._particles[:, :2]) 
+        #eps_ radius of the neigborhood of the point
+        #self._particles[:, :2] selects only  the x and y coordinates 
         labels = clustering.labels_
         unique_labels = np.unique(labels)
         # If there is only one cluster
         # DANGER: No estoy seguro de que hacer si hay más de un cluster
+
+        # Check if there is only one cluster (localized)
         if len(unique_labels) == 1:
             localized = True
             # Compute the pose estimate as the mean of the particles
-            pose = np.mean(self._particles, axis=0)
+            pose = np.mean(self._particles[labels == unique_labels[0]], axis=0)
+            # selects particles that belong to the first unique cluster identified by DBSCAN ( cluster assumed to be the most likely robot pose).
             # Keep 100 particles for pose tracking
             self._particle_count = 100
+
+        # Handle multiple clusters
+        elif len(unique_labels) > 1:
+ # Multiple clusters: calculate weighted average pose
+            cluster_poses = []
+            cluster_weights = []
+
+            for label in unique_labels:
+                cluster_particles = self._particles[labels == label]
+                cluster_pose = np.mean(cluster_particles, axis=0) #centroid of the cluster in a row
+                cluster_count = len(cluster_particles) #weight of cluster
+                cluster_weights.append(cluster_count)
+                cluster_poses.append(cluster_pose)
+
+            # Calculate weighted average pose
+            # Calculate weighted average pose
+                if sum(cluster_weights) > 0:  # Avoid division by zero (if clusters detected)
+                    # Compute the probability of each cluster pose
+                    cluster_probabilities = [self._measurement_probability(self._particles, tuple(cluster_pose)) for cluster_pose in cluster_poses]
+                    
+                    # Calculate weights based on cluster probabilities
+                    weights = np.array(cluster_weights) * np.array(cluster_probabilities)
+                    weights /= np.sum(weights)  # Normalize weights
+                    
+                    # Calculate weighted average pose
+                    pose = np.average(cluster_poses, weights=weights, axis=0)
 
         return localized, pose
 
@@ -98,9 +129,17 @@ class ParticleFilter:
         # TODO: 2.5. Complete the function body with your code (i.e., replace the pass statement).
         for i, particle in enumerate(self._particles):
             # Compute new particle pose
-            x = particle[0] + v * self._dt * math.cos(particle[2])
-            y = particle[1] + v * self._dt * math.sin(particle[2])
-            theta = particle[2] + w * self._dt
+            x = particle[0] + v * self._dt * math.cos(particle[2]) + np.random.normal(0,self._sigma_v)
+            y = particle[1] + v * self._dt * math.sin(particle[2]) + np.random.normal(0,self._sigma_v)
+            theta = particle[2] + w * self._dt + np.random.normal(0,self._sigma_w)
+
+            # Wrap angle to [0, 2π) range
+            theta = theta % (2 * np.pi)
+            # Handle potential collisions with the environment
+            if self._map.check_collision(x, y):
+                # Treat colliding particles as ghosts, staying at intersection point
+                collision_point = self._map.check_collision(x, y)
+                x, y = collision_point.x, collision_point.y
             self._particles[i] = (x, y, theta)
 
     def resample(self, measurements: List[float]) -> None:
@@ -114,7 +153,7 @@ class ParticleFilter:
         # We resample with replacement, so we can have repeated particles based on _measurement_probability
         weights = [self._measurement_probability(measurements, particle) for particle in self._particles]
         # Normalize the weights
-        alphas = np.array(weights) / np.sum(weights)
+        alphas = np.array(weights) / np.sum(weights) #en realidad no hace falta but for random.choice yes.
         # Resample the particles
         self._particles = np.random.choice(self._particles, self._particle_count, p=alphas)
         
@@ -256,7 +295,7 @@ class ParticleFilter:
             # Check for intersections with obstacles
             for obstacle in self._map.obstacles:
                 # Compute the intersection of the ray with the obstacle
-                intersection = self._map.intersect(ray, obstacle)
+                intersection = self._map.check_collision(ray, obstacle)
                 if intersection:
                     # Compute the distance from the particle to the intersection
                     z = min(z, math.sqrt((particle[0] - intersection[0]) ** 2 + (particle[1] - intersection[1]) ** 2))
@@ -281,7 +320,8 @@ class ParticleFilter:
         # TODO: 2.7. Complete the function body (i.e., replace the code below).
         if sigma > 0:
             # Gaussian function https://www.investopedia.com/terms/n/normaldistribution.asp
-            return 1 / (sigma * math.sqrt(2 * math.pi)) * math.exp(-0.5 * ((x - mu) / sigma) ** 2)
+            return  math.exp(-0.5 * ((x - mu) / sigma) ** 2) #sensors are of the same type
+
         else:
             # If sigma is zero, return 1 if x is equal to mu, 0 otherwise
             return 1 if x == mu else 0
