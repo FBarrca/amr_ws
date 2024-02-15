@@ -77,17 +77,23 @@ class ParticleFilter:
         # Number of clusters in labels, ignoring noise if present.
         n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
         n_noise_ = list(labels).count(-1)
-        print(f"Number of clusters: {n_clusters_}, noise: {n_noise_}")
+        # print(f"Number of clusters: {n_clusters_}, noise: {n_noise_}")
         # # If there is only one cluster
         if n_clusters_ == 1:
             localized = True
             print("---------------------Localized---------------------")
             # Compute the pose estimate as the mean of the particles
-            points_of_cluster_0 = self._particles[labels == 0]
-            centroid_of_cluster_0 = np.mean(points_of_cluster_0, axis=0) 
-            print(centroid_of_cluster_0)
-            pose = (centroid_of_cluster_0[0], centroid_of_cluster_0[1], centroid_of_cluster_0[2])
-            print("Localization pose:", pose)
+            localized = True
+            pose = np.mean(self._particles, axis=0)
+            orientations = self._particles[:, 2]
+            orientations_nm = orientations.astype(np.float64)
+            sin_med = np.mean(np.sin(orientations_nm))
+            cos_med = np.mean(np.cos(orientations_nm))
+            orientation = math.atan2(sin_med, cos_med)
+            orientation %= 2.0 * math.pi
+            pose = (pose[0], pose[1], orientation)
+            
+            # print("Localization pose:", pose)
             # Keep 100 particles for pose tracking
             self._particle_count = 100
         return localized, pose
