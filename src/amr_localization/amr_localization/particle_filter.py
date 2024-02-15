@@ -72,7 +72,7 @@ class ParticleFilter:
         # TODO: 2.10. Complete the missing function body with your code.
         # Compute the clusters
     
-        db = DBSCAN(eps=0.3, min_samples=10).fit(self._particles[:, :2])
+        db = DBSCAN(eps=0.3, min_samples=10).fit(self._particles)
         labels = db.labels_
         # Number of clusters in labels, ignoring noise if present.
         n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
@@ -81,9 +81,13 @@ class ParticleFilter:
         # # If there is only one cluster
         if n_clusters_ == 1:
             localized = True
-            print("Localized")
+            print("---------------------Localized---------------------")
             # Compute the pose estimate as the mean of the particles
-            pose = np.mean(self._particles, axis=0)
+            points_of_cluster_0 = self._particles[labels == 0]
+            centroid_of_cluster_0 = np.mean(points_of_cluster_0, axis=0) 
+            print(centroid_of_cluster_0)
+            pose = (centroid_of_cluster_0[0], centroid_of_cluster_0[1], centroid_of_cluster_0[2])
+            print("Localization pose:", pose)
             # Keep 100 particles for pose tracking
             self._particle_count = 100
         return localized, pose
