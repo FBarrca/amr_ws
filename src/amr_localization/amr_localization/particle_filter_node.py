@@ -103,7 +103,6 @@ class ParticleFilterNode(Node):
         self._execute_motion_step(z_v, z_w)
         x_h, y_h, theta_h = self._execute_measurement_step(z_us)
         self._steps += 1
-        print(f"Computed pose: {x_h}, {y_h}, {theta_h}")
         # Publish
         self._publish_pose_estimate(x_h, y_h, theta_h)
 

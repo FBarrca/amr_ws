@@ -71,17 +71,21 @@ class ParticleFilter:
         # pose: Tuple[float, float, float] = (0.0, 0.0, 0.0)
         # TODO: 2.10. Complete the missing function body with your code.
         # Compute the clusters
-        clustering = DBSCAN(eps=0.5, min_samples=10).fit(self._particles[:, :2])
-        labels = clustering.labels_
-        unique_labels = np.unique(labels)
-
+    
+        db = DBSCAN(eps=0.3, min_samples=10).fit(self._particles[:, :2])
+        labels = db.labels_
+        # Number of clusters in labels, ignoring noise if present.
+        n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
+        n_noise_ = list(labels).count(-1)
+        print(f"Number of clusters: {n_clusters_}, noise: {n_noise_}")
         # # If there is only one cluster
-        if len(unique_labels) == 1:
+        if n_clusters_ == 1:
             localized = True
+            print("Localized")
             # Compute the pose estimate as the mean of the particles
             pose = np.mean(self._particles, axis=0)
             # Keep 100 particles for pose tracking
-            # self._particle_count = 100
+            self._particle_count = 100
         return localized, pose
 
     def move(self, v: float, w: float) -> None:
@@ -123,10 +127,7 @@ class ParticleFilter:
         weights = [
             self._measurement_probability(measurements, particle) for particle in self._particles
         ]
-        # print the weights that are not 0
-        for i, w in enumerate(weights):
-            if w > 0:
-                print(f"Particle {i}: {w:.2f}")
+
         # Normalize the weights
         alphas = np.array(weights) / np.sum(weights)
 
