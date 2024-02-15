@@ -115,7 +115,37 @@ class AStar:
         smoothed_path: List[Tuple[float, float]] = []
 
         # TODO: 3.4. Complete the missing function body with your code.
-
+        # path [(x, y), (x, y), ...]
+        # Add intermediate points to the path interpolating between adjacent points
+        over_sampling = 2
+        for i in range(len(path) - 1):
+            x0, y0 = path[i]
+            x1, y1 = path[i + 1]
+            # Add the first point
+            smoothed_path.append((x0, y0))
+            # Add intermediate points
+            for j in range(1, over_sampling):
+                x = x0 + (x1 - x0) * j / over_sampling
+                y = y0 + (y1 - y0) * j / over_sampling
+                smoothed_path.append((x, y))
+        # Add the last point
+        smoothed_path.append(path[-1])
+        # Path smoothing using the gradient descent method
+        change = tolerance
+        # smoothed_path = path[:] # [(x, y), (x, y), ...]
+        while change >= tolerance:
+            change = 0
+            for i in range(1, len(smoothed_path) - 1):
+                x, y = smoothed_path[i]
+                # Store the original value
+                x_old, y_old = x, y
+                # Update the value
+                smoothed_path[i] = (
+                    x + data_weight * (smoothed_path[i][0] - x) + smooth_weight * (smoothed_path[i + 1][0] + smoothed_path[i - 1][0] - 2 * x),
+                    y + data_weight * (smoothed_path[i][1] - y) + smooth_weight * (smoothed_path[i + 1][1] + smoothed_path[i - 1][1] - 2 * y),
+                )
+                # Update the change
+                change += abs(x - x_old) + abs(y - y_old)
         return smoothed_path
 
     @staticmethod
