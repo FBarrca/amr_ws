@@ -26,7 +26,7 @@ class ParticleFilterNode(Node):
         self.declare_parameter("enable_plot", False)
         self._enable_plot = self.get_parameter("enable_plot").get_parameter_value().bool_value
 
-        self.declare_parameter("particles", 1000)
+        self.declare_parameter("particles", 10000)
         particles = self.get_parameter("particles").get_parameter_value().integer_value
 
         self.declare_parameter("steps_btw_sense_updates", 10)
@@ -167,7 +167,8 @@ class ParticleFilterNode(Node):
         pose_msg.pose.position.x = x_h
         pose_msg.pose.position.y = y_h
         pose_msg.pose.position.z = 0.0
-        print(f"theta_h: {theta_h}")
+        pose_msg.localized = self._localized	
+        # print(f"theta_h: {theta_h}")
         try:
             quat = euler2quat(0, 0, theta_h)
         except:
