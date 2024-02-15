@@ -59,6 +59,41 @@ class AStar:
         # TODO: 3.2. Complete the function body (i.e., replace the code below).
         path: List[Tuple[float, float]] = []
         steps: int = 0
+        # Convert start and goal to (row, col) coordinates
+        start_rc = self._xy_to_rc(start)
+        goal_rc = self._xy_to_rc(goal)
+        heuristic = self._compute_heuristic(goal_rc)
+        # Check if the start and goal are valid
+        if not self._map.contains(start) or not self._map.contains(goal):
+            # Raise an exception if the start or goal are not valid
+            raise ValueError("Start or goal are not valid")
+        open_list = {(start_rc[0],start_rc[1]): (heuristic[start_rc],0)} # f,g # No explorados
+        closed_list = set() # Explorados
+        ancestors = {} # Selected path
+        # while open_list is not empty
+        while open_list is not None:
+            # x, y
+            current_node = r,c = min(open_list, key=lambda k:open_list.get(k)[0])
+            f, g = open_list[current_node]
+            open_list.pop(current_node)
+            if current_node == goal_rc:
+                path = self._reconstruct_path(start_rc, goal_rc, ancestors)
+                steps = len(path)
+                return path, steps
+            # See adjacent nodes in the grid map in manhattan distance
+            # iterate over the four possible actions
+            for i, action in enumerate(self._actions):
+                new_node = (current_node[0] + action[0], current_node[1] + action[1])
+                # if open_list does not contain new_node
+                print(new_node)
+                if new_node not in open_list and new_node not in closed_list and self._map.contains(self._rc_to_xy(new_node)):
+                    g = g + self._action_costs[i]
+                    f = g + heuristic[new_node]
+                    open_list[new_node] = (f,g)
+                    ancestors[new_node] = current_node
+ 
+            closed_list.add(current_node)
+        raise ValueError("No path found")
         return path, steps
 
     @staticmethod
@@ -180,7 +215,13 @@ class AStar:
         heuristic = np.zeros_like(self._map.grid_map)
 
         # TODO: 3.1. Complete the missing function body with your code.
-
+        shape = self._map._grid_map.shape
+        # Create a grid with the distance from each cell to the goal
+        for i in range(shape[0]):
+            for j in range(shape[1]):
+                x_dist = abs(i - goal[0])
+                y_dist = abs(j - goal[1])
+                heuristic[i, j] = x_dist + y_dist
         return heuristic
 
     def _reconstruct_path(
@@ -203,7 +244,38 @@ class AStar:
         path: List[Tuple[float, float]] = []
 
         # TODO: 3.3. Complete the missing function body with your code.
-
+        # Reconstruct the path from the goal to the start using the ancestors
+        current_node = goal # (x, y) # ultimo elemento del path
+        while current_node != start:
+            path.append(self._rc_to_xy(current_node)) 
+            next = ancestors[current_node] # (x, y)
+            # Check if the next node is neighbor of the current node
+            if abs(next[0] - current_node[0]) + abs(next[1] - current_node[1]) == 1:
+                current_node = next
+            else:
+                # Pop from path until the next node is neighbor of the current node
+                while abs(next[0] - current_node[0]) + abs(next[1] - current_node[1]) != 1:
+                    path.pop()
+                    current_node = path[-1]
+        path.append(self._rc_to_xy(current_node))
+       
+        # while current_node != start:
+        #     prev = ancestors[current_node]
+        #     # Check if the next node is neighbor of the current node
+        #     if abs(prev[0] - current_node[0]) + abs(prev[1] - current_node[1]) == 1:
+        #         path.append(self._rc_to_xy(prev))
+        #         current_node = prev
+        #     else: 
+        #         # Search in which value in ancestors is the neighbor of the current node
+        #         for key, value in ancestors.items():
+        #             # value is not on the path and it is a neighbor of the current node
+        #             if abs(key[0] - current_node[0]) + abs(key[1] - current_node[1]) == 1 and key not in path:
+        #                 # (k,v) (4,3)
+        #                 path.append(self._rc_to_xy(key))
+        #                 current_node = key
+        #                 break
+        # Reverse the path to start from the start location
+        path.reverse()
         return path
 
     def _xy_to_rc(self, xy: Tuple[float, float]) -> Tuple[int, int]:
