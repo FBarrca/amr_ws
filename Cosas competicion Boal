@@ -1,0 +1,13 @@
+Full speed forward and slow at corners
+Do not use very aggresive mandos as to avoid slipping (acceleration)
+
+Resample only each x samples to make it faster (10 now but might be better to make it more)
+
+Particle reduction technique -> number of clusters or KLD sampling
+
+Intersection in localization POMDP to choose the direction to look at 
+
+Vectorizing with numpy or C++
+
+Rotate at the start at localization right after localized.
+
