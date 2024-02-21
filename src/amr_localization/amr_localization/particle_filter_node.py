@@ -115,7 +115,7 @@ class ParticleFilterNode(Node):
         Returns:
             Pose estimate (x_h, y_h, theta_h) [m, m, rad]; inf if cannot be computed.
         """
-        pose = (float("inf"), float("inf"), float("inf"))
+        pose = (float("inf"), float("inf"), 0)
 
         if self._localized or not self._steps % self._steps_btw_sense_updates:
             start_time = time.perf_counter()
@@ -164,19 +164,21 @@ class ParticleFilterNode(Node):
         pose_msg = PoseStamped()
         pose_msg.header.stamp = self.get_clock().now().to_msg()
         pose_msg.header.frame_id = "map"
-        pose_msg.pose.position.x = x_h
-        pose_msg.pose.position.y = y_h
+        pose_msg.pose.position.x = float(x_h)
+        pose_msg.pose.position.y = float(y_h)
         pose_msg.pose.position.z = 0.0
-        pose_msg.localized = self._localized	
-        # print(f"theta_h: {theta_h}")
-        try:
-            quat = euler2quat(0, 0, theta_h)
-        except:
-            quat = euler2quat(0, 0, 0)
-        pose_msg.pose.orientation.x = quat[0]
-        pose_msg.pose.orientation.y = quat[1]
-        pose_msg.pose.orientation.z = quat[2]
-        pose_msg.pose.orientation.w = quat[3]
+        pose_msg.localized = bool(self._localized)
+        
+        if theta_h > 1000:
+            theta_h = 0
+
+        quat_w, quat_x, quat_y, quat_z = euler2quat(0.0, 0.0, theta_h)
+        pose_msg.pose.orientation.w = quat_w
+        pose_msg.pose.orientation.x = quat_x
+        pose_msg.pose.orientation.y = quat_y
+        pose_msg.pose.orientation.z = quat_z
+
+
         self._pose_publisher.publish(pose_msg)
         pass
 
