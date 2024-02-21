@@ -30,6 +30,7 @@ class WallFollowerNode(Node):
         # Append as many topics as needed
         self . _subscribers . append ( message_filters . Subscriber ( self , Odometry , "/odom" ) )
         self . _subscribers . append ( message_filters . Subscriber ( self , RangeScan , "/us_scan" ) )
+        self . _subscribers . append ( message_filters . Subscriber ( self , PoseStamped , "/pose" ) )
         ts = message_filters . ApproximateTimeSynchronizer ( self . _subscribers ,
         queue_size =10 , slop =2)
         ts . registerCallback ( self . _compute_commands_callback )
