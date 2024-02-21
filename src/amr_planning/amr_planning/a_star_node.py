@@ -76,8 +76,8 @@ class AStarNode(Node):
         path_msg.header.stamp = self.get_clock().now().to_msg()
         for x, y in path:
             pose = PoseStamped()
-            pose.pose.position.x = x
-            pose.pose.position.y = y
+            pose.pose.position.x = float(x)
+            pose.pose.position.y = float(y)
             pose.pose.position.z = 0.0
             path_msg.poses.append(pose)
         self._publisher_path.publish(path_msg)
