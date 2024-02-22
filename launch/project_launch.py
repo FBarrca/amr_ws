@@ -24,7 +24,7 @@ def generate_launch_description():
                 executable="particle_filter",
                 output="screen",
                 arguments=["--ros-args", "--log-level", "WARN"],
-                parameters=[{"particles": particles, "world": world}],
+                parameters=[{"enable_plot": False, "particles": particles, "world": world}],
             ),
             Node(
                 package="amr_planning",
@@ -37,7 +37,7 @@ def generate_launch_description():
                 package="amr_control",
                 executable="pure_pursuit",
                 output="screen",
-                arguments=["--ros-args", "--log-level", "WARN"],
+                arguments=["--ros-args", "--log-level", "INFO"],
             ),
             Node(
                 package="amr_simulation",

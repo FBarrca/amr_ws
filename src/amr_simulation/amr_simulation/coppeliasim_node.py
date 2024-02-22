@@ -13,6 +13,8 @@ from typing import List
 from amr_simulation.coppeliasim import CoppeliaSim
 from amr_simulation.robot_p3dx import RobotP3DX
 
+import time
+
 
 class CoppeliaSimNode(Node):
     def __init__(self):
@@ -47,13 +49,15 @@ class CoppeliaSimNode(Node):
         # TODO: 2.3. Synchronize the /pose and /cmd_vel subscribers if enable_localization is True.
         if enable_localization:
             self._subscribers.append(message_filters.Subscriber(self, PoseStamped, "/pose"))
-        ts = message_filters.ApproximateTimeSynchronizer(self._subscribers, queue_size=10, slop=20)
+        ts = message_filters.ApproximateTimeSynchronizer(self._subscribers, queue_size=10, slop=30)
         ts.registerCallback(self._next_step_callback)
         # TODO: 1.4. Create the /odom (Odometry message) and /us_scan (RangeScan) publishers.
         self._odom_pub = self.create_publisher(Odometry, "/odom", 10)
         self._us_scan_pub = self.create_publisher(RangeScan, "/us_scan", 10)
 
         # Attribute and object initializations
+        
+        time.sleep(5.0)
         self._coppeliasim = CoppeliaSim(dt, start, goal_tolerance)
         self._robot = RobotP3DX(self._coppeliasim.sim, dt)
         self._localized = False

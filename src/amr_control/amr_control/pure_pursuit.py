@@ -42,6 +42,7 @@ class PurePursuit:
         
             w = 2 * v * math.sin(alpha) / self._lookahead_distance
         except ValueError:	
+            print("ValueError344")
             v = 0.0
             w = 0.0
         return v, w

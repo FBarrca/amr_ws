@@ -27,7 +27,7 @@ class PurePursuitNode(Node):
 
         # Subscribers
         self._subscriber_pose = self.create_subscription(
-            PoseStamped, "pose", self._compute_commands_callback, 10
+            PoseStamped, "/pose", self._compute_commands_callback, 10
         )
         self._subscriber_path = self.create_subscription(Path, "path", self._path_callback, 10)
 
@@ -86,8 +86,8 @@ class PurePursuitNode(Node):
 
         """
         msg = TwistStamped()
-        msg.twist.linear.x = v
-        msg.twist.angular.z = w
+        msg.twist.linear.x = float(v)
+        msg.twist.angular.z = float(w)
         self._publisher.publish(msg)
 
 
