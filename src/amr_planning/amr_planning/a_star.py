@@ -77,7 +77,7 @@ class AStar:
             f, g = open_list[current_node]
             open_list.pop(current_node)
             if current_node == goal_rc:
-                path = self._reconstruct_path(start_rc, goal_rc, ancestors)
+                path = self._reconstruct_path(start, goal, ancestors)
                 steps = len(path)
                 return path, steps
             # See adjacent nodes in the grid map in manhattan distance
@@ -85,7 +85,7 @@ class AStar:
             for i, action in enumerate(self._actions):
                 new_node = (current_node[0] + action[0], current_node[1] + action[1])
                 # if open_list does not contain new_node
-                print(new_node)
+                # print(new_node)
                 if new_node not in open_list and new_node not in closed_list and self._map.contains(self._rc_to_xy(new_node)):
                     g = g + self._action_costs[i]
                     f = g + heuristic[new_node]
@@ -117,7 +117,8 @@ class AStar:
         # TODO: 3.4. Complete the missing function body with your code.
         # path [(x, y), (x, y), ...]
         # Add intermediate points to the path interpolating between adjacent points
-        over_sampling = 2
+        over_sampling = 3
+        
         for i in range(len(path) - 1):
             x0, y0 = path[i]
             x1, y1 = path[i + 1]
@@ -133,6 +134,7 @@ class AStar:
         # Path smoothing using the gradient descent method
         change = tolerance
         # smoothed_path = path[:] # [(x, y), (x, y), ...]
+        og_path = smoothed_path[:]
         while change >= tolerance:
             change = 0
             for i in range(1, len(smoothed_path) - 1):
@@ -141,8 +143,8 @@ class AStar:
                 x_old, y_old = x, y
                 # Update the value
                 smoothed_path[i] = (
-                    x + data_weight * (smoothed_path[i][0] - x) + smooth_weight * (smoothed_path[i + 1][0] + smoothed_path[i - 1][0] - 2 * x),
-                    y + data_weight * (smoothed_path[i][1] - y) + smooth_weight * (smoothed_path[i + 1][1] + smoothed_path[i - 1][1] - 2 * y),
+                    x + data_weight * (smoothed_path[0] - x) + smooth_weight * (smoothed_path[i + 1][0] + smoothed_path[i - 1][0] - 2 * x),
+                    y + data_weight * (smoothed_path[1] - y) + smooth_weight * (smoothed_path[i + 1][1] + smoothed_path[i - 1][1] - 2 * y),
                 )
                 # Update the change
                 change += abs(x - x_old) + abs(y - y_old)
@@ -275,8 +277,8 @@ class AStar:
 
         # TODO: 3.3. Complete the missing function body with your code.
         # Reconstruct the path from the goal to the start using the ancestors
-        current_node = goal # (x, y) # ultimo elemento del path
-        while current_node != start:
+        current_node = self._xy_to_rc(goal) # (x, y) # ultimo elemento del path
+        while current_node != self._xy_to_rc(start):
             path.append(self._rc_to_xy(current_node)) 
             next = ancestors[current_node] # (x, y)
             # Check if the next node is neighbor of the current node
