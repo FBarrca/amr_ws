@@ -143,8 +143,8 @@ class AStar:
                 x_old, y_old = x, y
                 # Update the value
                 smoothed_path[i] = (
-                    x + data_weight * (smoothed_path[0] - x) + smooth_weight * (smoothed_path[i + 1][0] + smoothed_path[i - 1][0] - 2 * x),
-                    y + data_weight * (smoothed_path[1] - y) + smooth_weight * (smoothed_path[i + 1][1] + smoothed_path[i - 1][1] - 2 * y),
+                    x + data_weight * (og_path[i][0] - x) + smooth_weight * (smoothed_path[i + 1][0] + smoothed_path[i - 1][0] - 2 * x),
+                    y + data_weight * (og_path[i][1] - y) + smooth_weight * (smoothed_path[i + 1][1] + smoothed_path[i - 1][1] - 2 * y),
                 )
                 # Update the change
                 change += abs(x - x_old) + abs(y - y_old)
