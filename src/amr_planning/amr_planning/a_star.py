@@ -72,13 +72,15 @@ class AStar:
         ancestors = {} # Selected path
         # while open_list is not empty
         while open_list is not None:
+            steps += 1
             # x, y
             current_node = r,c = min(open_list, key=lambda k:open_list.get(k)[0])
             f, g = open_list[current_node]
             open_list.pop(current_node)
+
             if current_node == goal_rc:
                 path = self._reconstruct_path(start, goal, ancestors)
-                steps = len(path)
+                # steps = len(path)
                 return path, steps
             # See adjacent nodes in the grid map in manhattan distance
             # iterate over the four possible actions
@@ -291,7 +293,7 @@ class AStar:
                     current_node = path[-1]
         path.append(self._rc_to_xy(current_node))
        
-        # while current_node != start:
+        # while current_node != self._xy_to_rc(start):
         #     prev = ancestors[current_node]
         #     # Check if the next node is neighbor of the current node
         #     if abs(prev[0] - current_node[0]) + abs(prev[1] - current_node[1]) == 1:
@@ -306,6 +308,7 @@ class AStar:
         #                 path.append(self._rc_to_xy(key))
         #                 current_node = key
         #                 break
+        # path.append(self._rc_to_xy(current_node))
         # Reverse the path to start from the start location
         path.reverse()
         return path
@@ -340,8 +343,10 @@ class AStar:
             xy: (x, y) [m].
 
         """
+
         map_rows, map_cols = np.shape(self._map.grid_map)
         row, col = rc
+       
 
         x = col - math.floor(map_cols / 2.0)
         y = map_rows - (row + math.ceil(map_rows / 2.0))
