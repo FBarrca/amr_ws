@@ -11,8 +11,8 @@ from transforms3d.euler import euler2quat
 
 def generate_launch_description():
     world = "project"
-    start = (-4.0, -4.0, math.pi / 2)
-    goal = (4.0, 4.0)
+    start = (-4.0, 1.0, math.pi / 2)
+    goal = (4.0, 0.0)
 
     msg = PoseStamped()
     msg.localized = True

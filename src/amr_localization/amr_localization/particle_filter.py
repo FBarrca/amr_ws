@@ -68,34 +68,24 @@ class ParticleFilter:
         """
         localized: bool = False
         pose: Tuple[float, float, float] = (float("inf"), float("inf"), float("inf"))
-        # pose: Tuple[float, float, float] = (0.0, 0.0, 0.0)
+
         # TODO: 2.10. Complete the missing function body with your code.
-        # Compute the clusters
-    
-        db = DBSCAN(eps=0.3, min_samples=10).fit(self._particles)
-        labels = db.labels_
-        # Number of clusters in labels, ignoring noise if present.
-        n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-        n_noise_ = list(labels).count(-1)
-        # print(f"Number of clusters: {n_clusters_}, noise: {n_noise_}")
-        # # If there is only one cluster
-        if n_clusters_ == 1:
+
+        # Compute clusters
+        clusters = DBSCAN(eps=0.5, min_samples=10).fit(self._particles[:, :2]).labels_
+        unique_clusters = np.unique(clusters)
+        cluster_count = len(unique_clusters)
+        # If only one cluster is found, localize the robot
+        if cluster_count == 1:
             localized = True
-            print("---------------------Localized---------------------")
-            # Compute the pose estimate as the mean of the particles
-            localized = True
+            # Compute the pose estimate
             pose = np.mean(self._particles, axis=0)
-            orientations = self._particles[:, 2]
-            orientations_nm = orientations.astype(np.float64)
-            sin_med = np.mean(np.sin(orientations_nm))
-            cos_med = np.mean(np.cos(orientations_nm))
-            orientation = math.atan2(sin_med, cos_med)
-            orientation %= 2.0 * math.pi
-            pose = (pose[0], pose[1], orientation)
-            
-            # print("Localization pose:", pose)
-            # Keep 100 particles for pose tracking
+            # Reduce the number of particles to 100
             self._particle_count = 100
+        else:
+            localized = False
+            self._particle_count = self._initial_particle_count
+
         return localized, pose
 
     def move(self, v: float, w: float) -> None:
@@ -109,52 +99,74 @@ class ParticleFilter:
         self._iteration += 1
 
         # TODO: 2.5. Complete the function body with your code (i.e., replace the pass statement).
-        for i, particle in enumerate(self._particles):
-            # Compute new particle pose
-            x = particle[0] + (v + np.random.normal(0, self._sigma_v)) * self._dt * math.cos(
-                particle[2]
-            )
-            y = particle[1] + (v + np.random.normal(0, self._sigma_w)) * self._dt * math.sin(
-                particle[2]
-            )
-            theta = particle[2] + (w + np.random.normal(0, self._sigma_w)) * self._dt
-            intersection, distance = self._map.check_collision(((particle[0], particle[1]), (x, y)))
+        # Hint: Use the motion model to update the particles' pose.
+        # The motion model is given by:
+        #   x' = x + v * dt * cos(theta)
+        #   y' = y + v * dt * sin(theta)
+        #   theta' = theta + w * dt
+        # where (x, y, theta) are the current particle's pose and (x', y', theta') are the updated pose.
+        # The linear and angular velocities are corrupted with Gaussian noise.
+        # The noise is generated using the np.random.normal function.
 
+        #  Update particle pose using motion model
+        for i, particle in enumerate(self._particles):
+            x, y, theta = particle
+            # Add Gaussian noise to linear and angular velocities
+            v_noise = np.random.normal(0, self._sigma_v)
+            w_noise = np.random.normal(0, self._sigma_w)
+            # Update particle pose
+            x_new = x + (v + v_noise) * self._dt * math.cos(theta)
+            y_new = y + (v + v_noise) * self._dt * math.sin(theta)
+            theta += (w + w_noise) * self._dt
+
+            # check if out of bounds
+            # (x, y), _ = self._map.check_collision([(x, y), (x_new, y_new)])
+
+            intersection, distance = self._map.check_collision(
+                ((x, y), (x_new, y_new)), compute_distance=True
+            )
             if not intersection:
-                self._particles[i] = (x, y, theta)
+                self._particles[i] = (x_new, y_new, theta)
             else:
                 self._particles[i] = (intersection[0], intersection[1], theta)
-        pass
 
     def resample(self, measurements: List[float]) -> None:
-        """Samples a new set of particles.
+        """Samples a new set of particles. Resamples with replacement according to the importance
+        of the weights provided by the function _measurement_probability.
+
 
         Args:
             measurements: Sensor measurements [m].
 
         """
         # TODO: 2.9. Complete the function body with your code (i.e., replace the pass statement).
-        weights = [
-            self._measurement_probability(measurements, particle) for particle in self._particles
-        ]
 
-        # Normalize the weights
-        alphas = np.array(weights) / np.sum(weights)
+        # Compute importance weights
+        weights = np.array(
+            [self._measurement_probability(measurements, particle) for particle in self._particles]
+        )
 
-        # Cumulative sum of the weights
-        cumulative_sum = np.cumsum(alphas)
-        # Determine the positions of the indices to resample
-        positions = (np.arange(self._particle_count) + np.random.random()) / self._particle_count
+        # Check for and handle negative, inf or NaN values in weights to ensure stability
+        if np.any(np.isinf(weights)):
+            # THIS CLASS HAS NO LOGGER
+            # self.get_logger().info("WEIGHTS have inf values. Replacing with zeros.")
+            raise ValueError("Weights contain inf values after measurement.")
+        if np.any(np.isnan(weights)):
+            # self.get_logger().info("WEIGHTS have NaN values. Replacing with zeros.")
+            raise ValueError("Weights contain NaN values after measurement.")
+        if np.any(weights < 0):
+            # self.get_logger().info("WEIGHTS have negative values. Replacing with zeros.")
+            raise ValueError("Weights contain Neg values after measurement.")
 
-        indexes = np.zeros(self._particle_count, "i")
-        cumulative_index = 0
-        for i, pos in enumerate(positions):
-            while cumulative_sum[cumulative_index] < pos:
-                cumulative_index += 1
-            indexes[i] = cumulative_index
+        # Normalize weights to form a probability distribution
+        total_weight = np.sum(weights)
+        weights /= total_weight  # Assign equal weight if sum is 0 or negative
 
-        # Resample the particles according to the indexes
-        self._particles = self._particles[indexes]
+        # Resample particles according to the normalized weights
+        indices = np.random.choice(
+            len(self._particles), size=self._particle_count, p=weights, replace=True
+        )
+        self._particles = self._particles[indices]
 
     def plot(self, axes, orientation: bool = True):
         """Draws particles.
@@ -244,17 +256,26 @@ class ParticleFilter:
 
         """
         particles = np.empty((particle_count, 3), dtype=object)
-        x_min, y_min, x_max, y_max = self._map.bounds()
+        orientation = [0, math.pi / 2, math.pi, 3 * math.pi / 2]
+
         # TODO: 2.4. Complete the missing function body with your code.
+        i = 0
+        bounds = self._map.bounds()
+
+        x_min = bounds[0]
+        y_min = bounds[1]
+        x_max = bounds[2]
+        y_max = bounds[3]
+
         for i in range(particle_count):
-            while True:
-                x = np.random.uniform(x_min, x_max)
-                y = np.random.uniform(y_min, y_max)
-                if self._map.contains((x, y)):
-                    break
-            theta = np.random.choice([0, np.pi / 2, np.pi, 3 * np.pi / 2])
-            # print(f"Particle {i}: ({x:.2f}, {y:.2f}, {theta:.2f})")
-            particles[i] = (x, y, theta)
+            particles[i, 0] = np.random.uniform(x_min, x_max)
+            particles[i, 1] = np.random.uniform(y_min, y_max)
+            particles[i, 2] = np.random.choice(orientation)
+            # check if the particle is valid, repeat until it is
+            while not self._map.contains((particles[i, 0], particles[i, 1])):
+                particles[i, 0] = np.random.uniform(x_min, x_max)
+                particles[i, 1] = np.random.uniform(y_min, y_max)
+
         return particles
 
     @staticmethod
@@ -289,14 +310,16 @@ class ParticleFilter:
         z_hat: List[float] = []
 
         # TODO: 2.6. Complete the missing function body with your code.
+
         for ray in rays:
-            # Compute the intersection of the ray with the map.
-            intersection, distance = self._map.check_collision(ray, True)
-            # Compute the distance to the intersection point
-            if distance > self._sensor_range:
+            _, distance = self._map.check_collision(ray, compute_distance=True)
+            if distance is None:
+                z_hat.append(float("inf"))
+            elif distance > 1.0:
                 z_hat.append(float("inf"))
             else:
                 z_hat.append(distance)
+
         return z_hat
 
     @staticmethod
@@ -313,7 +336,11 @@ class ParticleFilter:
 
         """
         # TODO: 2.7. Complete the function body (i.e., replace the code below).
-        return math.exp(-0.5 * ((x - mu) / sigma) ** 2)
+        # gaussian fucntion to compute the probability of a measurement given a particle aka. importance weight
+
+        f_x = 1 / (sigma * math.sqrt(2 * math.pi)) * math.exp(-0.5 * ((x - mu) / sigma) ** 2)
+
+        return f_x
 
     def _measurement_probability(
         self, measurements: List[float], particle: Tuple[float, float, float]
@@ -336,19 +363,16 @@ class ParticleFilter:
         probability = 1.0
 
         # TODO: 2.8. Complete the missing function body with your code.
-        # Predicted measurement
+
         z_hat = self._sense(particle)
-        # self._logger.info(f"z_hat:{z_hat}")
-        measurements = [
-            1.25 * self._sensor_range if z > self._sensor_range else z for z in measurements
-        ]
-        z_hat  = [
-            1.25 * self._sensor_range if z > self._sensor_range else z for z in z_hat
-        ]
-                
-        # Compare the predicted with the measure
-        for z, z_hat_i in zip(measurements, z_hat):
-            probability *= self._gaussian(z_hat_i, self._sigma_z, z)
+
+        for z, z_hat in zip(measurements, z_hat):
+            if z_hat == float("inf"):
+                z_hat = 1.25 * self._sensor_range
+            if z == float("inf"):
+                z = 1.25 * self._sensor_range
+            probability *= self._gaussian(z_hat, self._sigma_z, z)
+
         return probability
 
     def _sensor_rays(self, particle: Tuple[float, float, float]) -> List[List[Tuple[float, float]]]:

@@ -43,21 +43,37 @@ class CoppeliaSimNode(Node):
 
         # TODO: 1.12. Subscribe to /cmd_vel. Connect it with with _next_step_callback.
 
-        
-        self._subscribers: list[message_filters.Subscriber] = []
-        self._subscribers.append(message_filters.Subscriber(self, TwistStamped, "/cmd_vel"))
+        """ self._subscribe_cmd_vel = self.create_subscription(
+            msg_type=TwistStamped,
+            topic="cmd_vel",
+            qos_profile=10,
+            callback=self._next_step_callback,
+        ) """
+
         # TODO: 2.3. Synchronize the /pose and /cmd_vel subscribers if enable_localization is True.
+        # combine in a subscriber List both topics: /pose and /cmd_vel
+        # always send /cmd_vel, and if available, send /pose
+
+        self._subscribers: List[message_filters.Subscriber] = []
+        self._subscribers.append(message_filters.Subscriber(self, TwistStamped, "cmd_vel"))
+
         if enable_localization:
-            self._subscribers.append(message_filters.Subscriber(self, PoseStamped, "/pose"))
-        ts = message_filters.ApproximateTimeSynchronizer(self._subscribers, queue_size=10, slop=2)
+            self._subscribers.append(message_filters.Subscriber(self, PoseStamped, "pose"))
+
+        ts = message_filters.ApproximateTimeSynchronizer(self._subscribers, queue_size=10, slop=10)
         ts.registerCallback(self._next_step_callback)
+
         # TODO: 1.4. Create the /odom (Odometry message) and /us_scan (RangeScan) publishers.
-        self._odom_pub = self.create_publisher(Odometry, "/odom", 10)
-        self._us_scan_pub = self.create_publisher(RangeScan, "/us_scan", 10)
+        self._publisher_odom = self.create_publisher(
+            msg_type=Odometry, topic="odom", qos_profile=10
+        )
+        self._publisher_us = self.create_publisher(
+            msg_type=RangeScan, topic="us_scan", qos_profile=10
+        )
+
+        time.sleep(5)
 
         # Attribute and object initializations
-        
-        time.sleep(5.0)
         self._coppeliasim = CoppeliaSim(dt, start, goal_tolerance)
         self._robot = RobotP3DX(self._coppeliasim.sim, dt)
         self._localized = False
@@ -80,12 +96,18 @@ class CoppeliaSimNode(Node):
             pose_msg: Message containing the estimated robot pose.
 
         """
+
+        # log entering the callback
+
         # Check estimated pose
         self._check_estimated_pose(pose_msg)
 
         # TODO: 1.13. Parse the velocities from the TwistStamped message (i.e., read v and w).
-        v: float = cmd_vel_msg.twist.linear.x
-        w: float = cmd_vel_msg.twist.angular.z
+        v: float = 0.0
+        w: float = 0.0
+
+        v = cmd_vel_msg.twist.linear.x
+        w = cmd_vel_msg.twist.angular.z
 
         # Execute simulation step
         self._robot.move(v, w)
@@ -99,6 +121,7 @@ class CoppeliaSimNode(Node):
         # Publish
         self._publish_odometry(z_v, z_w)
         self._publish_us(z_us)
+        self._logger.debug("Next Step Callback executed")
 
     def _check_estimated_pose(self, pose_msg: PoseStamped = PoseStamped()) -> None:
         """If the robot is localized, compares the estimated and real poses.
@@ -190,11 +213,12 @@ class CoppeliaSimNode(Node):
 
         """
         # TODO: 1.5. Complete the function body with your code (i.e., replace the pass statement).
-        msg = Odometry()
-        msg.header.stamp = self.get_clock().now().to_msg()
-        msg.twist.twist.linear.x = z_v
-        msg.twist.twist.angular.z = z_w
-        self._odom_pub.publish(msg)
+        odom = Odometry()
+        odom.twist.twist.linear.x = z_v
+        odom.twist.twist.angular.z = z_w
+        self._publisher_odom.publish(odom)
+
+        pass
 
     def _publish_us(self, z_us: List[float]) -> None:
         """Publishes US measurements in a custom amr_msgs.msg.RangeScan message.
@@ -204,12 +228,11 @@ class CoppeliaSimNode(Node):
 
         """
         # TODO: 1.6. Complete the function body with your code (i.e., replace the pass statement).
-        msg = RangeScan()
-        msg.header.stamp = self.get_clock().now().to_msg()
-        msg.ranges = z_us
-        msg.min_range = 0.0
-        msg.max_range = 1.0
-        self._us_scan_pub.publish(msg)
+        scan = RangeScan()
+        scan.ranges = z_us
+        self._publisher_us.publish(scan)
+
+        pass
 
 
 def main(args=None):

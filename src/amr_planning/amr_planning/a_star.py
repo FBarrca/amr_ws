@@ -16,7 +16,7 @@ class AStar:
         self,
         map_path: str,
         sensor_range: float,
-        action_costs: Tuple[float, float, float, float] = (1.0, 1.0, 1.0, 1.0),
+        action_costs: Tuple[float, float, float, float] = (3.0, 1.0, 1.0, 3.0),
     ):
         """A* class initializer.
 
@@ -57,55 +57,75 @@ class AStar:
 
         """
         # TODO: 3.2. Complete the function body (i.e., replace the code below).
+
+        # log the open and closed lists
         path: List[Tuple[float, float]] = []
         steps: int = 0
-        # Convert start and goal to (row, col) coordinates
-        start_rc = self._xy_to_rc(start)
-        goal_rc = self._xy_to_rc(goal)
-        heuristic = self._compute_heuristic(goal_rc)
-        # Check if the start and goal are valid
-        if not self._map.contains(start) or not self._map.contains(goal):
-            # Raise an exception if the start or goal are not valid
-            raise ValueError("Start or goal are not valid")
-        open_list = {(start_rc[0],start_rc[1]): (heuristic[start_rc],0)} # f,g # No explorados
-        closed_list = set() # Explorados
-        ancestors = {} # Selected path
-        # while open_list is not empty
-        while open_list is not None:
-            steps += 1
-            # x, y
-            current_node = r,c = min(open_list, key=lambda k:open_list.get(k)[0])
-            f, g = open_list[current_node]
-            open_list.pop(current_node)
 
-            if current_node == goal_rc:
-                path = self._reconstruct_path(start, goal, ancestors)
-                # steps = len(path)
-                return path, steps
-            # See adjacent nodes in the grid map in manhattan distance
-            # iterate over the four possible actions
+        # 1. transform the start and goal to row and column
+        goal_rc = self._xy_to_rc(goal)
+        start_rc = self._xy_to_rc(start)
+
+        # 2. Check if the goal is not in the map
+        if not self._map.contains(goal):
+            raise ValueError("The goal is not in the map.")
+        if not self._map.contains(start):
+            raise ValueError("The start is not in the map.")
+
+        heuristic = self._compute_heuristic(goal_rc)
+
+        # 3. Create open_list, closed_list, and ancestors
+        open_list = {start_rc: (heuristic[start_rc], 0)}  # f, g
+        # closed list is a set that stores tuples (r, c)
+        closed_list = set()
+        ancestors = {}
+
+        grid = self._map.grid_map
+        shape = grid.shape
+
+        while open_list:
+            current_node = r, c = min(open_list, key=lambda o: open_list[o][0])
+            last = open_list.pop(current_node)
+
             for i, action in enumerate(self._actions):
-                new_node = (current_node[0] + action[0], current_node[1] + action[1])
-                # if open_list does not contain new_node
-                # print(new_node)
-                if new_node not in open_list and new_node not in closed_list and self._map.contains(self._rc_to_xy(new_node)):
-                    g = g + self._action_costs[i]
-                    f = g + heuristic[new_node]
-                    open_list[new_node] = (f,g)
+                new_node = r + action[0], c + action[1]
+
+                if new_node == goal_rc:
                     ancestors[new_node] = current_node
- 
+                    return self._reconstruct_path(start_rc, goal_rc, ancestors), len(closed_list)
+
+                if not 0 <= new_node[0] < shape[0] or not 0 <= new_node[1] < shape[1]:
+                    continue
+                if grid[new_node] == 1:
+                    continue
+                if new_node in closed_list:
+                    continue
+                if new_node in open_list:
+                    continue
+
+                # TODO: Improve contains -> very slow
+
+                new_g = last[1] + self._action_costs[i]
+                new_f = new_g + heuristic[new_node]
+
+                open_list[new_node] = (new_f, new_g)
+                ancestors[new_node] = current_node
+
             closed_list.add(current_node)
-        raise ValueError("No path found")
+
         return path, steps
 
     @staticmethod
     def smooth_path(
-        path, data_weight: float = 0.1, smooth_weight: float = 0.1, tolerance: float = 1e-6
+        path,
+        data_weight: float = 0.1,
+        smooth_weight: float = 0.1,
+        tolerance: float = 1e-6,
     ) -> List[Tuple[float, float]]:
         """Computes a smooth trajectory from a Manhattan-like path.
 
         Args:
-            path: Non-smoothed path to the goal (start location first).
+            path: Non-smoothed path to the goal (start location first). Tuple[List[Tuple[float, float]]
             data_weight: The larger, the more similar the output will be to the original path.
             smooth_weight: The larger, the smoother the output path will be.
             tolerance: The algorithm will stop when after an iteration the smoothed path changes
@@ -117,39 +137,55 @@ class AStar:
         smoothed_path: List[Tuple[float, float]] = []
 
         # TODO: 3.4. Complete the missing function body with your code.
-        # path [(x, y), (x, y), ...]
-        # Add intermediate points to the path interpolating between adjacent points
-        over_sampling = 3
-        
+        # optimize with gradient descent the path, min (pi - si)^2, min (si - si+1)^2
+
+        """  big_path = [path[0]]
         for i in range(len(path) - 1):
-            x0, y0 = path[i]
-            x1, y1 = path[i + 1]
-            # Add the first point
-            smoothed_path.append((x0, y0))
-            # Add intermediate points
-            for j in range(1, over_sampling):
-                x = x0 + (x1 - x0) * j / over_sampling
-                y = y0 + (y1 - y0) * j / over_sampling
-                smoothed_path.append((x, y))
-        # Add the last point
-        smoothed_path.append(path[-1])
-        # Path smoothing using the gradient descent method
+            # Assuming path is a list of tuples (x, y)
+            # stage = np.linspace(path[i], path[i + 1], num=2, endpoint=True, retstep=False, axis=0)
+            big_path.append(path[i])
+            big_path.append(((path[i][0] + path[i + 1][0]) / 2, (path[i][1] + path[i + 1][1]) / 2))
+        big_path.append(path[-1]) """
+
+        big_path = []
+
+        for i in range(len(path) - 1):
+            # Using linspace to create 2 points (including the endpoint) between path[i] and path[i+1]
+            # This will effectively create the original point and a midpoint, as the endpoint will be added in the next iteration
+            intermediate_points = np.linspace(path[i], path[i + 1], num=4, endpoint=False)
+            big_path.extend(intermediate_points)
+
+        big_path.append(path[-1])  # Add the last point which will not be included in the loop
+        big_path = [tuple(point) for point in big_path]
+
+        # smooth the path
+        # Initialize smoothed_path with the same points as big_path
+        smoothed_path = list(big_path)
+
+        tolerance = 0.0001
+
         change = tolerance
-        # smoothed_path = path[:] # [(x, y), (x, y), ...]
-        og_path = smoothed_path[:]
         while change >= tolerance:
             change = 0
-            for i in range(1, len(smoothed_path) - 1):
-                x, y = smoothed_path[i]
-                # Store the original value
-                x_old, y_old = x, y
-                # Update the value
-                smoothed_path[i] = (
-                    x + data_weight * (og_path[i][0] - x) + smooth_weight * (smoothed_path[i + 1][0] + smoothed_path[i - 1][0] - 2 * x),
-                    y + data_weight * (og_path[i][1] - y) + smooth_weight * (smoothed_path[i + 1][1] + smoothed_path[i - 1][1] - 2 * y),
-                )
-                # Update the change
-                change += abs(x - x_old) + abs(y - y_old)
+            for i in range(1, len(big_path) - 1):  # Avoid the first and last point
+                for j in range(2):  # x and y coordinates
+                    old_value = smoothed_path[i][j]
+                    smoothed_path[i] = (
+                        smoothed_path[i][0]
+                        if j != 0
+                        else old_value
+                        + data_weight * (big_path[i][0] - old_value)
+                        + smooth_weight
+                        * (smoothed_path[i - 1][0] + smoothed_path[i + 1][0] - 2 * old_value),
+                        smoothed_path[i][1]
+                        if j != 1
+                        else old_value
+                        + data_weight * (big_path[i][1] - old_value)
+                        + smooth_weight
+                        * (smoothed_path[i - 1][1] + smoothed_path[i + 1][1] - 2 * old_value),
+                    )
+                    change += abs(smoothed_path[i][j] - old_value)
+
         return smoothed_path
 
     @staticmethod
@@ -249,27 +285,31 @@ class AStar:
         heuristic = np.zeros_like(self._map.grid_map)
 
         # TODO: 3.1. Complete the missing function body with your code.
-        shape = self._map._grid_map.shape
-        # Create a grid with the distance from each cell to the goal
-        for i in range(shape[0]):
-            for j in range(shape[1]):
-                x_dist = abs(i - goal[0])
-                y_dist = abs(j - goal[1])
-                heuristic[i, j] = x_dist + y_dist
+        # r_goal, c_goal = self._xy_to_rc(goal)
+
+        for r in range(heuristic.shape[0]):
+            for c in range(heuristic.shape[1]):
+                # Compute the Manhattan distance from the current cell to the goal
+                # and store it in the heuristic matrix
+                heuristic[r, c] = abs(r - goal[0]) + abs(c - goal[1])  # Manhattan distance
+
+        # heuristic to naive
+        # heuristic = np.zeros_like(self._map.grid_map)
+
         return heuristic
 
     def _reconstruct_path(
         self,
-        start: Tuple[float, float],
-        goal: Tuple[float, float],
+        start: Tuple[int, int],
+        goal: Tuple[int, int],
         ancestors: Dict[Tuple[int, int], Tuple[int, int]],
     ) -> List[Tuple[float, float]]:
         """Computes the path from the start to the goal given the ancestors of a search algorithm.
 
         Args:
-            start: Initial location in (x, y) format.
-            goal: Goal location in (x, y) format.
-            ancestors: Matrix that contains for every cell, None or the (x, y) ancestor from which
+            start: Initial location in (r, c) format.
+            goal: Goal location in (r, c) format.
+            ancestors: Matrix that contains for every cell, None or the (r, c) ancestor from which
                        it was opened.
 
         Returns: Path to the goal (start location first) in (x, y) format.
@@ -278,39 +318,16 @@ class AStar:
         path: List[Tuple[float, float]] = []
 
         # TODO: 3.3. Complete the missing function body with your code.
-        # Reconstruct the path from the goal to the start using the ancestors
-        current_node = self._xy_to_rc(goal) # (x, y) # ultimo elemento del path
-        while current_node != self._xy_to_rc(start):
-            path.append(self._rc_to_xy(current_node)) 
-            next = ancestors[current_node] # (x, y)
-            # Check if the next node is neighbor of the current node
-            if abs(next[0] - current_node[0]) + abs(next[1] - current_node[1]) == 1:
-                current_node = next
-            else:
-                # Pop from path until the next node is neighbor of the current node
-                while abs(next[0] - current_node[0]) + abs(next[1] - current_node[1]) != 1:
-                    path.pop()
-                    current_node = path[-1]
-        path.append(self._rc_to_xy(current_node))
-       
-        # while current_node != self._xy_to_rc(start):
-        #     prev = ancestors[current_node]
-        #     # Check if the next node is neighbor of the current node
-        #     if abs(prev[0] - current_node[0]) + abs(prev[1] - current_node[1]) == 1:
-        #         path.append(self._rc_to_xy(prev))
-        #         current_node = prev
-        #     else: 
-        #         # Search in which value in ancestors is the neighbor of the current node
-        #         for key, value in ancestors.items():
-        #             # value is not on the path and it is a neighbor of the current node
-        #             if abs(key[0] - current_node[0]) + abs(key[1] - current_node[1]) == 1 and key not in path:
-        #                 # (k,v) (4,3)
-        #                 path.append(self._rc_to_xy(key))
-        #                 current_node = key
-        #                 break
-        # path.append(self._rc_to_xy(current_node))
-        # Reverse the path to start from the start location
-        path.reverse()
+
+        node = goal
+
+        while node != start:
+            path.append(self._rc_to_xy(node))
+            node = ancestors[node]
+
+        # path.append(start)
+        path = path[::-1]  # reverse the path
+
         return path
 
     def _xy_to_rc(self, xy: Tuple[float, float]) -> Tuple[int, int]:
@@ -343,10 +360,8 @@ class AStar:
             xy: (x, y) [m].
 
         """
-
         map_rows, map_cols = np.shape(self._map.grid_map)
         row, col = rc
-       
 
         x = col - math.floor(map_cols / 2.0)
         y = map_rows - (row + math.ceil(map_rows / 2.0))

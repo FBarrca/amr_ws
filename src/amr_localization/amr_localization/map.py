@@ -433,6 +433,7 @@ class Map:
             rc: (row, col) starting from (0, 0) at the top left corner.
 
         """
+
         x = math.floor(xy[0])
         y = math.ceil(xy[1])
 

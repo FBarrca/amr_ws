@@ -15,13 +15,13 @@ def generate_launch_description():
                 package="amr_control",
                 executable="wall_follower",
                 output="screen",
-                arguments=["--ros-args", "--log-level", "WARN"],
+                arguments=["--ros-args", "--log-level", "INFO"],
             ),
             Node(
                 package="amr_localization",
                 executable="particle_filter",
                 output="screen",
-                arguments=["--ros-args", "--log-level", "WARN"],
+                arguments=["--ros-args", "--log-level", "INFO"],
                 parameters=[{"enable_plot": True, "particles": particles, "world": world}],
             ),
             Node(

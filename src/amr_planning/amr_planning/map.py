@@ -147,7 +147,9 @@ class Map:
 
             if (compute_distance and intersections) or len(intersections) > 1:
                 distances = [
-                    math.sqrt((pt[0] - segment[0][0]) ** 2 + (pt[1] - segment[0][1]) ** 2)
+                    math.sqrt(
+                        (pt[0] - segment[0][0]) ** 2 + (pt[1] - segment[0][1]) ** 2
+                    )
                     for pt in intersections
                 ]
                 index = int(np.argmin(distances))
@@ -214,11 +216,21 @@ class Map:
 
         # Plot map
         x, y = self._map_polygon.exterior.xy
-        axes.plot(x, y, color="black", alpha=1, linewidth=3, solid_capstyle="round", zorder=2)
+        axes.plot(
+            x, y, color="black", alpha=1, linewidth=3, solid_capstyle="round", zorder=2
+        )
 
         for interior in self._map_polygon.interiors:
             x, y = interior.xy
-            axes.plot(x, y, color="black", alpha=1, linewidth=3, solid_capstyle="round", zorder=2)
+            axes.plot(
+                x,
+                y,
+                color="black",
+                alpha=1,
+                linewidth=3,
+                solid_capstyle="round",
+                zorder=2,
+            )
 
         return axes
 
@@ -251,7 +263,9 @@ class Map:
         plt.pause(0.0001)  # Wait for 0.1 ms or the figure won't be displayed
 
         if save_figure:
-            save_path = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", save_dir))
+            save_path = os.path.realpath(
+                os.path.join(os.path.dirname(__file__), "..", save_dir)
+            )
 
             if not os.path.isdir(save_path):
                 os.makedirs(save_path)
@@ -289,7 +303,12 @@ class Map:
             map_line_width = 2.0
             marker_size = 5.0
             figure, axes = plt.subplots(
-                rows, cols, figsize=figure_size, num=figure_number, sharex=True, sharey=True
+                rows,
+                cols,
+                figsize=figure_size,
+                num=figure_number,
+                sharex=True,
+                sharey=True,
             )
         else:
             label_size = 5.0
@@ -330,7 +349,13 @@ class Map:
                 r, c = m._xy_to_rc((x, y))
                 axes[r, c].plot(x, y, "bo", markersize=marker_size)
                 axes[r, c].plot(
-                    cx, cy, color="green", alpha=1, linewidth=1, linestyle="dashed", zorder=3
+                    cx,
+                    cy,
+                    color="green",
+                    alpha=1,
+                    linewidth=1,
+                    linestyle="dashed",
+                    zorder=3,
                 )
 
                 for s in m._region_segments[r][c]:
@@ -347,7 +372,9 @@ class Map:
         plt.show(block=block)
 
         if save_figure:
-            save_path = os.path.realpath(os.path.join(os.path.dirname(__file__), "..", save_dir))
+            save_path = os.path.realpath(
+                os.path.join(os.path.dirname(__file__), "..", save_dir)
+            )
 
             if not os.path.isdir(save_path):
                 os.makedirs(save_path)
@@ -368,7 +395,9 @@ class Map:
             "Linux": "libintersect.so",
         }
 
-        library_path = os.path.join(os.path.dirname(__file__), library_names[platform.system()])
+        library_path = os.path.join(
+            os.path.dirname(__file__), library_names[platform.system()]
+        )
         intersect = ct.CDLL(library_path)
 
         # Initialize function arguments and return value types
@@ -450,5 +479,13 @@ if __name__ == "__main__":
     )
 
     m = Map(map_path, sensor_range=1.0)
-    m.show(title=map_name, figure_number=1, block=False, figure_size=(8, 8), save_figure=True)
-    m.show_regions(title=map_name, figure_number=2, figure_size=(8, 8), save_figure=True)
+    m.show(
+        title=map_name,
+        figure_number=1,
+        block=False,
+        figure_size=(8, 8),
+        save_figure=True,
+    )
+    m.show_regions(
+        title=map_name, figure_number=2, figure_size=(8, 8), save_figure=True
+    )

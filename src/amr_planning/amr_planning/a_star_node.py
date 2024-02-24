@@ -32,7 +32,8 @@ class AStarNode(Node):
         )
 
         # TODO: 3.5. Create the /path publisher (Path message).
-        self._publisher_path = self.create_publisher(Path, "path", 10)
+        self._publisher_path = self.create_publisher(msg_type=Path, topic="path", qos_profile=10)
+
         # Constants
         SENSOR_RANGE = 1.0  # Ultrasonic sensor range [m]
 
@@ -74,13 +75,16 @@ class AStarNode(Node):
         path_msg = Path()
         path_msg.header.frame_id = "map"
         path_msg.header.stamp = self.get_clock().now().to_msg()
+
         for x, y in path:
             pose = PoseStamped()
             pose.pose.position.x = float(x)
             pose.pose.position.y = float(y)
-            pose.pose.position.z = 0.0
             path_msg.poses.append(pose)
+
         self._publisher_path.publish(path_msg)
+
+        pass
 
 
 def main(args=None):

@@ -24,7 +24,7 @@ def generate_launch_description():
                 executable="particle_filter",
                 output="screen",
                 arguments=["--ros-args", "--log-level", "WARN"],
-                parameters=[{"enable_plot": False, "particles": particles, "world": world}],
+                parameters=[{"particles": particles, "world": world}],
             ),
             Node(
                 package="amr_planning",

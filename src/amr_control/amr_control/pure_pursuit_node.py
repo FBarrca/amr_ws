@@ -62,7 +62,7 @@ class PurePursuitNode(Node):
             self.get_logger().info(f"Commands: v = {v:.3f} m/s, w = {w:+.3f} rad/s")
 
             # Publish
-            self._publish_velocity_commands(v, w)
+            self._publish_velocity_commands(0.5, w)
 
     def _path_callback(self, path_msg: Path):
         """Subscriber callback. Saves the path the pure pursuit controller has to follow.
