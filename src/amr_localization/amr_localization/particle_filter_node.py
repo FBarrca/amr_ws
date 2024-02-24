@@ -38,18 +38,15 @@ class ParticleFilterNode(Node):
         world = self.get_parameter("world").get_parameter_value().string_value
 
         # Subscribers
-        self._subscribers: list[message_filters.Subscriber] = []
-        self._subscribers.append(message_filters.Subscriber(self, Odometry, "odom"))
-        self._subscribers.append(message_filters.Subscriber(self, RangeScan, "us_scan"))
+        self._subscribers2: list[message_filters.Subscriber] = []
+        self._subscribers2.append(message_filters.Subscriber(self, Odometry, "odom"))
+        self._subscribers2.append(message_filters.Subscriber(self, RangeScan, "us_scan"))
 
-        # TODO: Check callback definition. Does not seem to be entering the callback...
-        ts = message_filters.ApproximateTimeSynchronizer(self._subscribers, queue_size=10, slop=2)
+        ts = message_filters.ApproximateTimeSynchronizer(self._subscribers2, queue_size=10, slop=20)
         ts.registerCallback(self._compute_pose_callback)
 
         # TODO: 2.1. Create the /pose publisher (PoseStamped message).
-        self._publisher_pose = self.create_publisher(
-            msg_type=PoseStamped, topic="pose", qos_profile=10
-        )
+        self._pose_publisher = self.create_publisher(PoseStamped, "pose", 10)
 
         # Constants
         SENSOR_RANGE = 1.0  # Ultrasonic sensor range [m]
@@ -97,7 +94,6 @@ class ParticleFilterNode(Node):
             us_msg: Message containing US sensor readings.
 
         """
-
         # Parse measurements
         z_v: float = odom_msg.twist.twist.linear.x
         z_w: float = odom_msg.twist.twist.angular.z
@@ -107,7 +103,6 @@ class ParticleFilterNode(Node):
         self._execute_motion_step(z_v, z_w)
         x_h, y_h, theta_h = self._execute_measurement_step(z_us)
         self._steps += 1
-
         # Publish
         self._publish_pose_estimate(x_h, y_h, theta_h)
 
@@ -166,20 +161,25 @@ class ParticleFilterNode(Node):
 
         """
         # TODO: 2.2. Complete the function body with your code (i.e., replace the pass statement).
+        pose_msg = PoseStamped()
+        pose_msg.header.frame_id = "map"
+        pose_msg.localized = self._localized
 
-        msg = PoseStamped()
-        msg.localized = self._localized
-        if msg.localized:
-            msg.pose.position.x = x_h
-            msg.pose.position.y = y_h
+        if self._localized:
+            pose_msg.pose.position.x = float(x_h)
+            pose_msg.pose.position.y = float(y_h)
+            pose_msg.pose.position.z = 0.0
+            
+    
+            quat_w, quat_x, quat_y, quat_z = euler2quat(0.0, 0.0, theta_h)
+            pose_msg.pose.orientation.w = quat_w
+            pose_msg.pose.orientation.x = quat_x
+            pose_msg.pose.orientation.y = quat_y
+            pose_msg.pose.orientation.z = quat_z
 
-            quaternion = euler2quat(0.0, 0.0, theta_h)
-            msg.pose.orientation.w = quaternion[0]
-            msg.pose.orientation.x = quaternion[1]
-            msg.pose.orientation.y = quaternion[2]
-            msg.pose.orientation.z = quaternion[3]
 
-        self._publisher_pose.publish(msg)
+        self._pose_publisher.publish(pose_msg)
+       
 
 
 def main(args=None):
