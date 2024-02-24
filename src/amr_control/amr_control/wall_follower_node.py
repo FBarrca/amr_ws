@@ -32,7 +32,7 @@ class WallFollowerNode(Node):
         self . _subscribers . append ( message_filters . Subscriber ( self , RangeScan , "/us_scan" ) )
         self . _subscribers . append ( message_filters . Subscriber ( self , PoseStamped , "/pose" ) )
         ts = message_filters . ApproximateTimeSynchronizer ( self . _subscribers ,
-        queue_size =10 , slop =20)
+        queue_size =10 , slop =2)
         ts . registerCallback ( self . _compute_commands_callback )
 
         # TODO: 1.10. Create the /cmd_vel velocity commands publisher (TwistStamped message).
