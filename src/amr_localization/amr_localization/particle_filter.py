@@ -49,7 +49,6 @@ class ParticleFilter:
 
         self._map = Map(map_path, sensor_range, compiled_intersect=True, use_regions=True)
         self._particles = self._init_particles(particle_count)
-        print(f"Particles: {self._particles.shape}, type: {type(self._particles)}")
 
         self._ds, self._phi = self._init_sensor_polar_coordinates(sensors)
         self._figure, self._axes = plt.subplots(1, 1, figsize=(7, 7))
@@ -119,7 +118,7 @@ class ParticleFilter:
                 particle[2]
             )
             theta = particle[2] + (w + np.random.normal(0, self._sigma_w)) * self._dt
-            intersection, distance = self._map.check_collision(((particle[0], particle[1]), (x, y)))
+            intersection, distance = self._map.check_collision(((particle[0], particle[1]), (x, y)),False)
 
             if not intersection:
                 self._particles[i] = (x, y, theta)
