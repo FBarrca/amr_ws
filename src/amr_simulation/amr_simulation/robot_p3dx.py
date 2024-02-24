@@ -51,14 +51,12 @@ class RobotP3DX(Robot):
             w: Angular velocity of the robot center [rad/s].
 
         """
-        speed_left = (v - w * self.TRACK / 2) / self.WHEEL_RADIUS
-        speed_right = (v + w * self.TRACK / 2) / self.WHEEL_RADIUS
-
-        self._sim.setJointTargetVelocity(self._motors["left"], speed_left)
-        self._sim.setJointTargetVelocity(self._motors["right"], speed_right)
-
-        # TODO: 1.1. Complete the function body with your code (i.e., replace the pass statement). CHECK
-        pass
+        # TODO: 1.1. Complete the function body with your code (i.e., replace the pass statement).
+        # Solve inverse differential kinematics (i.e., calculate z_v and z_w).
+        w_l = (v-self.TRACK/2*w)/self.WHEEL_RADIUS
+        w_r = (v+self.TRACK/2*w)/self.WHEEL_RADIUS
+        self._sim.setJointTargetVelocity(self._motors["left"] , w_l )
+        self._sim.setJointTargetVelocity( self._motors["right"] , w_r )
 
     def sense(self) -> Tuple[List[float], float, float]:
         """Read ultrasonic sensors and encoders.
@@ -122,11 +120,11 @@ class RobotP3DX(Robot):
         encoders["right"] = self._sim.getFloatSignal("rightEncoder")
 
         # TODO: 1.2. Compute the derivatives of the angular positions to obtain velocities [rad/s].
-        w_left = encoders["left"] / self._dt
-        w_right = encoders["right"] / self._dt
-
+        w_l = encoders["left"] / self._dt
+        w_r = encoders["right"] / self._dt
+        
         # TODO: 1.3. Solve forward differential kinematics (i.e., calculate z_v and z_w).
-        z_v = (w_right + w_left) * self.WHEEL_RADIUS / 2
-        z_w = (w_right - w_left) * self.WHEEL_RADIUS / self.TRACK
+        z_v = (w_l+w_r)/2*self.WHEEL_RADIUS	
+        z_w = (w_r-w_l)/self.TRACK*self.WHEEL_RADIUS
 
         return z_v, z_w
