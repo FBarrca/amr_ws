@@ -37,7 +37,7 @@ def generate_launch_description():
                 package="amr_control",
                 executable="pure_pursuit",
                 output="screen",
-                arguments=["--ros-args", "--log-level", "INFO"],
+                arguments=["--ros-args", "--log-level", "WARN"],
             ),
             Node(
                 package="amr_simulation",

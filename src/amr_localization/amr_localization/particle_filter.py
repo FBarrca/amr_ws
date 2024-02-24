@@ -49,6 +49,8 @@ class ParticleFilter:
 
         self._map = Map(map_path, sensor_range, compiled_intersect=True, use_regions=True)
         self._particles = self._init_particles(particle_count)
+        print(f"Particles: {self._particles.shape}, type: {type(self._particles)}")
+
         self._ds, self._phi = self._init_sensor_polar_coordinates(sensors)
         self._figure, self._axes = plt.subplots(1, 1, figsize=(7, 7))
         self._timestamp = datetime.datetime.now(pytz.timezone("Europe/Madrid")).strftime(
@@ -72,30 +74,29 @@ class ParticleFilter:
         # TODO: 2.10. Complete the missing function body with your code.
         # Compute the clusters
     
+        # Compute the clusters
         db = DBSCAN(eps=0.3, min_samples=10).fit(self._particles)
         labels = db.labels_
         # Number of clusters in labels, ignoring noise if present.
-        n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
-        n_noise_ = list(labels).count(-1)
-        # print(f"Number of clusters: {n_clusters_}, noise: {n_noise_}")
-        # # If there is only one cluster
+        n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)        
+        # If there is only one cluster
         if n_clusters_ == 1:
             localized = True
-            print("---------------------Localized---------------------")
+            # print("---------------------Localized---------------------")
             # Compute the pose estimate as the mean of the particles
-            localized = True
-            pose = np.mean(self._particles, axis=0)
-            orientations = self._particles[:, 2]
-            orientations_nm = orientations.astype(np.float64)
-            sin_med = np.mean(np.sin(orientations_nm))
-            cos_med = np.mean(np.cos(orientations_nm))
+            pose_mean = np.mean(self._particles, axis=0)
+            orientations =  np.array(self._particles[:, 2], dtype=np.float64)
+            
+            sin_med = np.mean(np.sin(orientations))
+            cos_med = np.mean(np.cos(orientations))
             orientation = math.atan2(sin_med, cos_med)
             orientation %= 2.0 * math.pi
-            pose = (pose[0], pose[1], orientation)
+            pose = (pose_mean[0], pose_mean[1], orientation)
             
-            # print("Localization pose:", pose)
             # Keep 100 particles for pose tracking
-            self._particle_count = 100
+            # Assuming self._particles is a numpy array, reduce its size here if needed
+            self._particle_count = 50  # Adjust this based on your actual requirements
+        
         return localized, pose
 
     def move(self, v: float, w: float) -> None:
@@ -134,10 +135,8 @@ class ParticleFilter:
 
         """
         # TODO: 2.9. Complete the function body with your code (i.e., replace the pass statement).
-        weights = [
-            self._measurement_probability(measurements, particle) for particle in self._particles
-        ]
-
+        # Compute the weights for each particle based on the measurement probability.
+        weights = self._measurement_probability_vectorized(measurements, self._particles)
         # Normalize the weights
         alphas = np.array(weights) / np.sum(weights)
 
@@ -276,6 +275,28 @@ class ParticleFilter:
 
         return ds, phi
 
+    def _sense_vectorized_all_particles(self, particles: np.ndarray) -> np.ndarray:
+        """Obtains the predicted measurement of every sensor given the robot's pose.
+
+        Args:
+            particles: An array of particle poses, each defined by (x, y, theta) in [m] and [rad].
+
+        Returns: An array of predicted measurements; inf if a sensor is out of range.
+
+        """
+        rays = self._sensor_rays_vectorized_all_particles(particles)
+        z_hat = np.zeros((particles.shape[0], len(self._ds)))
+        for i, particle_rays in enumerate(rays):
+            for j, ray in enumerate(particle_rays):
+                # Compute the intersection of the ray with the map
+                intersection, distance = self._map.check_collision(ray, True)
+                # Compute the distance to the intersection point
+                if distance > self._sensor_range:
+                    z_hat[i, j] = float("inf")
+                else:
+                    z_hat[i, j] = distance
+        return z_hat
+
     def _sense(self, particle: Tuple[float, float, float]) -> List[float]:
         """Obtains the predicted measurement of every sensor given the robot's pose.
 
@@ -300,20 +321,58 @@ class ParticleFilter:
         return z_hat
 
     @staticmethod
-    def _gaussian(mu: float, sigma: float, x: float) -> float:
-        """Computes the value of a Gaussian.
+    def _gaussian( mu: np.ndarray, sigma: float, x: np.ndarray) -> np.ndarray:
+        """Vectorized computation of Gaussian probability densities.
 
         Args:
-            mu: Mean.
-            sigma: Standard deviation.
-            x: Variable.
+            mu: Expected measurements (mean values).
+            sigma: Standard deviation of the measurements.
+            x: Actual sensor measurements.
 
         Returns:
-            float: Gaussian value.
+            np.ndarray: The Gaussian probability densities for the sensor measurements.
+        """
+        # Precompute the coefficient (1 / (sqrt(2*pi*sigma^2))) and the exponent divisor (2*sigma^2)
+        coeff = 1 / (np.sqrt(2 * np.pi * sigma**2))
+        exponent = ((x - mu)**2) / (2 * sigma**2)
+        
+        # Compute the probabilities
+        probabilities = coeff * np.exp(-exponent)
+        return np.prod(probabilities, axis=1)
+
+
+    def _measurement_probability_vectorized(
+        self, measurements: np.ndarray, particles: np.ndarray
+    ) -> np.ndarray:
+        """Computes the probability of a set of measurements given a set of particles' poses.
+
+        If a measurement is unavailable (usually because it is out of range), it is replaced with
+        1.25 times the sensor range to perform the computation. This value has experimentally been
+        proven valid to deal with missing measurements. Nevertheless, it might not be the optimal
+        replacement value.
+
+        Args:
+            measurements: Sensor measurements [m].
+            particles: Particle poses (x, y, theta) [m, m, rad].
+
+        Returns:
+            np.narray: Probability for each particle.
 
         """
-        # TODO: 2.7. Complete the function body (i.e., replace the code below).
-        return math.exp(-0.5 * ((x - mu) / sigma) ** 2)
+        # Predicted measurements
+        z_hat = self._sense_vectorized_all_particles(particles)
+        
+        # Replace unavailable measurements and predictions with 1.25 times the sensor range
+        measurements = np.array(measurements)
+        z_hat = np.array(z_hat)
+
+        # Replace unavailable measurements and predictions with 1.25 times the sensor range
+        measurements = np.where(measurements > self._sensor_range, 1.25 * self._sensor_range, measurements)
+        z_hat = np.where(z_hat > self._sensor_range, 1.25 * self._sensor_range, z_hat)    
+        # Compute the probability product over all measurements
+        # Using vectorized form of the Gaussian function assuming self._gaussian is also adapted for vectorized inputs
+        probabilities = self._gaussian(z_hat, self._sigma_z, measurements)
+        return probabilities # (n_particles)
 
     def _measurement_probability(
         self, measurements: List[float], particle: Tuple[float, float, float]
@@ -335,20 +394,21 @@ class ParticleFilter:
         """
         probability = 1.0
 
-        # TODO: 2.8. Complete the missing function body with your code.
+        # Convert measurements to a numpy array if they aren't already
+        measurements = np.array(measurements)
+        
         # Predicted measurement
-        z_hat = self._sense(particle)
-        # self._logger.info(f"z_hat:{z_hat}")
-        measurements = [
-            1.25 * self._sensor_range if z > self._sensor_range else z for z in measurements
-        ]
-        z_hat  = [
-            1.25 * self._sensor_range if z > self._sensor_range else z for z in z_hat
-        ]
-                
-        # Compare the predicted with the measure
-        for z, z_hat_i in zip(measurements, z_hat):
-            probability *= self._gaussian(z_hat_i, self._sigma_z, z)
+        z_hat = np.array(self._sense(particle))
+        
+        # Replace unavailable measurements and predictions with 1.25 times the sensor range
+        measurements = np.where(measurements > self._sensor_range, 1.25 * self._sensor_range, measurements)
+        z_hat = np.where(z_hat > self._sensor_range, 1.25 * self._sensor_range, z_hat)
+        
+        # Compute the probability product over all measurements
+        # Using vectorized form of the Gaussian function assuming self._gaussian is also adapted for vectorized inputs
+        probabilities = self._gaussian(z_hat, self._sigma_z, measurements)  # This assumes _gaussian is vectorized
+        probability = np.prod(probabilities)
+        
         return probability
 
     def _sensor_rays(self, particle: Tuple[float, float, float]) -> List[List[Tuple[float, float]]]:
@@ -363,20 +423,63 @@ class ParticleFilter:
                   ...]
 
         """
-        x = particle[0]
-        y = particle[1]
-        theta = particle[2]
+        x, y, theta = particle
 
-        # Convert sensors to world coordinates
-        xw = [x + ds * math.cos(theta + phi) for ds, phi in zip(self._ds, self._phi)]
-        yw = [y + ds * math.sin(theta + phi) for ds, phi in zip(self._ds, self._phi)]
-        tw = [sensor[2] for sensor in self._sensors]
+        # Convert sensors to world coordinates using numpy for vectorized operations
+        ds = np.array(self._ds)
+        phi = np.array(self._phi)
+        tw = np.array([sensor[2] for sensor in self._sensors])
+        
+        xw = x + ds * np.cos(theta + phi)
+        yw = y + ds * np.sin(theta + phi)
 
-        rays = []
+        # Calculate ends of the rays
+        x_ends = xw + self._sensor_range * np.cos(theta + tw)
+        y_ends = yw + self._sensor_range * np.sin(theta + tw)
 
-        for xs, ys, ts in zip(xw, yw, tw):
-            x_end = xs + self._sensor_range * math.cos(theta + ts)
-            y_end = ys + self._sensor_range * math.sin(theta + ts)
-            rays.append([(xs, ys), (x_end, y_end)])
+        # Combine the arrays into the required format
+        rays = np.stack((xw, yw, x_ends, y_ends), axis=-1).reshape(-1, 2, 2).tolist()
 
         return rays
+    def _sensor_rays_vectorized_all_particles(self, particles: np.ndarray) -> List[List[List[Tuple[float, float]]]]:
+        """Determines the simulated sensor ray segments for all given particles.
+
+        Args:
+            particles: An array of particle poses, each defined by (x, y, theta) in [m] and [rad].
+
+        Returns: A list containing ray segments for each particle. Format for each particle:
+                    [[(x0_begin, y0_begin), (x0_end, y0_end)],
+                    [(x1_begin, y1_begin), (x1_end, y1_end)],
+                    ...]
+        """
+        particles = self._particles
+        x, y, theta = particles[:, 0], particles[:, 1], particles[:, 2]
+        # Convert them to np arrays for vectorized operations
+        x = np.array(x)
+        y = np.array(y)
+        theta = np.array(theta, dtype=np.float64)
+        # Angle of the rays
+        angles = theta[:, np.newaxis] + self._phi
+
+        # Repeat sensor parameters for each particle
+        ds = np.array(self._ds, dtype=np.float64)
+        phi = np.array(self._phi, dtype=np.float64)
+        sensor_range = self._sensor_range
+        tw = np.array([sensor[2] for sensor in self._sensors], dtype=np.float64)
+
+        # Number of particles and sensors
+        num_particles = particles.shape[0]
+        num_sensors = len(self._ds)
+    
+        # Expand dimensions for broadcasting
+        xw = x[:, np.newaxis] + ds * np.cos(angles)
+        yw = y[:, np.newaxis] + ds * np.sin(angles)
+        
+        x_ends = xw + sensor_range * np.cos(theta[:, np.newaxis] + tw)
+        y_ends = yw + sensor_range * np.sin(theta[:, np.newaxis] + tw)
+
+        # Stack coordinates and reshape for output format
+        rays = np.stack((xw, yw, x_ends, y_ends), axis=-1).reshape(num_particles, num_sensors, 2, 2)
+
+        # Convert to list of lists for consistency with expected return type
+        return rays.tolist()
