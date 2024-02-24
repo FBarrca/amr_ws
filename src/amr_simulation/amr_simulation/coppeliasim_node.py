@@ -121,7 +121,6 @@ class CoppeliaSimNode(Node):
         # Publish
         self._publish_odometry(z_v, z_w)
         self._publish_us(z_us)
-        self._logger.debug("Next Step Callback executed")
 
     def _check_estimated_pose(self, pose_msg: PoseStamped = PoseStamped()) -> None:
         """If the robot is localized, compares the estimated and real poses.

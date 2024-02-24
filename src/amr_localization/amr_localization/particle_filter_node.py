@@ -98,8 +98,6 @@ class ParticleFilterNode(Node):
 
         """
 
-        self._logger.warn("Callback entered (pose)")
-
         # Parse measurements
         z_v: float = odom_msg.twist.twist.linear.x
         z_w: float = odom_msg.twist.twist.angular.z
