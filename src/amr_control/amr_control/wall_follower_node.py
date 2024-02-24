@@ -27,18 +27,16 @@ class WallFollowerNode(Node):
 
         # TODO: 1.7. Subscribe to /odom and /us_scan and sync them with _compute_commands_callback.
         self._subscribers: list[message_filters.Subscriber] = []
+        # Append as many topics as needed
         self._subscribers.append(message_filters.Subscriber(self, Odometry, "odom"))
         self._subscribers.append(message_filters.Subscriber(self, RangeScan, "us_scan"))
-        # TODO: could this be the problem????
         self._subscribers.append(message_filters.Subscriber(self, PoseStamped, "pose"))
 
         ts = message_filters.ApproximateTimeSynchronizer(self._subscribers, queue_size=10, slop=10)
         ts.registerCallback(self._compute_commands_callback)
 
-        # TODO: 1.10. Create the /cmd_vel velocity commands publisher (TwistStamped message).
-        self._publisher_vel = self.create_publisher(
-            msg_type=TwistStamped, topic="cmd_vel", qos_profile=10
-        )
+        # TODO: Create the /cmd_vel velocity commands publisher (TwistStamped message).
+        self._publisher: rclpy.Publisher = self.create_publisher(TwistStamped, "cmd_vel", 10)
 
         # Attribute and object initializations
         self._wall_follower = WallFollower(dt)
@@ -58,18 +56,16 @@ class WallFollowerNode(Node):
         """
         if not pose_msg.localized:
             # TODO: 1.8. Parse the odometry from the Odometry message (i.e., read z_v and z_w).
-            z_v: float = 0.0
-            z_w: float = 0.0
+            z_v: float = odom_msg.twist.twist.linear.x
+            z_w: float = odom_msg.twist.twist.angular.z
 
-            z_v = odom_msg.twist.twist.linear.x  # CHECK
-            z_w = odom_msg.twist.twist.angular.z
 
             # TODO: 1.9. Parse US measurements from the RangeScan message (i.e., read z_us).
-            z_us: List[float] = []
-            z_us = us_msg.ranges
-
+            z_us: List[float] = us_msg.ranges
+            
             # Execute wall follower
             v, w = self._wall_follower.compute_commands(z_us, z_v, z_w)
+            self.get_logger().info(f"Commands: v = {v:.3f} m/s, w = {w:+.3f} rad/s")
 
             # Publish
             self._publish_velocity_commands(v, w)
@@ -82,12 +78,12 @@ class WallFollowerNode(Node):
             w: Angular velocity command [rad/s].
 
         """
-        
         # TODO: 1.11. Complete the function body with your code (i.e., replace the pass statement).
         msg = TwistStamped()
         msg.twist.linear.x = v
         msg.twist.angular.z = w
-        self._publisher_vel.publish(msg)
+        self._publisher.publish(msg)
+
 
 
 def main(args=None):
