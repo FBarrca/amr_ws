@@ -17,13 +17,15 @@ class PurePursuit:
         self._lookahead_distance: float = lookahead_distance
         self._path: List[Tuple[float, float]] = []
 
-    def compute_commands(self, x: float, y: float, theta: float) -> Tuple[float, float]:
+    def compute_commands(self, x: float, y: float, theta: float, crashed, measurements) -> Tuple[float, float]:
         """Pure pursuit controller implementation.
 
         Args:
             x: Estimated robot x coordinate [m].
             y: Estimated robot y coordinate [m].
             theta: Estimated robot heading [rad]. 
+            measurements : List of measurements from the sensors
+
 
         Returns:
             v: Linear velocity [m/s].

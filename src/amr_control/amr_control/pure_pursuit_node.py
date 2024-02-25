@@ -9,7 +9,10 @@ import math
 from transforms3d.euler import quat2euler
 
 from amr_control.pure_pursuit import PurePursuit
-
+import message_filters
+from amr_msgs.msg import PoseStamped, RangeScan
+from geometry_msgs.msg import TwistStamped
+from nav_msgs.msg import Odometry
 
 class PurePursuitNode(Node):
     def __init__(self):
@@ -26,9 +29,15 @@ class PurePursuitNode(Node):
         )
 
         # Subscribers
-        self._subscriber_pose = self.create_subscription(
-            PoseStamped, "/pose", self._compute_commands_callback, 10
-        )
+        # self._subscriber_pose = self.create_subscription(
+        #     PoseStamped, "/pose", self._compute_commands_callback, 10
+        # )
+        self._subscribers: list[message_filters.Subscriber] = []
+        self._subscribers.append(message_filters.Subscriber(self, Odometry, "odom"))
+        self._subscribers.append(message_filters.Subscriber(self, RangeScan, "us_scan"))
+        self._subscribers.append(message_filters.Subscriber(self, PoseStamped, "pose"))
+        ts = message_filters.ApproximateTimeSynchronizer(self._subscribers, queue_size=10, slop=10)
+        ts.registerCallback(self._compute_commands_callback)
         self._subscriber_path = self.create_subscription(Path, "path", self._path_callback, 10)
 
         # Publishers
@@ -37,7 +46,7 @@ class PurePursuitNode(Node):
         # Attribute and object initializations
         self._pure_pursuit = PurePursuit(dt, lookahead_distance)
 
-    def _compute_commands_callback(self, pose_msg: PoseStamped):
+    def _compute_commands_callback(self, odom_msg: Odometry, us_msg: RangeScan, pose_msg: PoseStamped):
         """Subscriber callback. Executes a pure pursuit controller and publishes v and w commands.
 
         Starts to operate once the robot is localized.
@@ -56,9 +65,13 @@ class PurePursuitNode(Node):
             quat_z = pose_msg.pose.orientation.z
             _, _, theta = quat2euler((quat_w, quat_x, quat_y, quat_z))
             theta %= 2 * math.pi
-
+            # Parse odometry vel
+            v = odom_msg.twist.twist.linear.x
+            crashed = True if v < 0.1 else False
+            # Parse ultrasonic sensor readings
+            measurements = us_msg.ranges
             # Execute pure pursuit
-            v, w = self._pure_pursuit.compute_commands(x, y, theta)
+            v, w = self._pure_pursuit.compute_commands(x, y, theta, crashed, measurements)
             self.get_logger().info(f"Commands: v = {v:.3f} m/s, w = {w:+.3f} rad/s")
 
             # Publish
