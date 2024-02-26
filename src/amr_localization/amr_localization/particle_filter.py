@@ -111,10 +111,11 @@ class ParticleFilter:
         # TODO: 2.5. Complete the function body with your code (i.e., replace the pass statement).
         for i, particle in enumerate(self._particles):
             # Compute new particle pose
-            x = particle[0] + (v + np.random.normal(0, self._sigma_v)) * self._dt * math.cos(
+            v_noise = np.random.normal(0, self._sigma_v)
+            x = particle[0] + (v + v_noise) * self._dt * math.cos(
                 particle[2]
             )
-            y = particle[1] + (v + np.random.normal(0, self._sigma_w)) * self._dt * math.sin(
+            y = particle[1] + (v + v_noise) * self._dt * math.sin(
                 particle[2]
             )
             theta = particle[2] + (w + np.random.normal(0, self._sigma_w)) * self._dt
@@ -138,21 +139,7 @@ class ParticleFilter:
         weights = self._measurement_probability_vectorized(measurements, self._particles)
         # Normalize the weights
         alphas = np.array(weights) / np.sum(weights)
-
-        # Cumulative sum of the weights
-        cumulative_sum = np.cumsum(alphas)
-        # Determine the positions of the indices to resample
-        positions = (np.arange(self._particle_count) + np.random.random()) / self._particle_count
-
-        indexes = np.zeros(self._particle_count, "i")
-        cumulative_index = 0
-        for i, pos in enumerate(positions):
-            while cumulative_sum[cumulative_index] < pos:
-                cumulative_index += 1
-            indexes[i] = cumulative_index
-
-        # Resample the particles according to the indexes
-        self._particles = self._particles[indexes]
+        self._particles = np.random.choice(self._particles, self._particle_count, p=alphas)
 
     def plot(self, axes, orientation: bool = True):
         """Draws particles.
@@ -289,11 +276,7 @@ class ParticleFilter:
             for j, ray in enumerate(particle_rays):
                 # Compute the intersection of the ray with the map
                 intersection, distance = self._map.check_collision(ray, True)
-                # Compute the distance to the intersection point
-                if distance > self._sensor_range:
-                    z_hat[i, j] = float("inf")
-                else:
-                    z_hat[i, j] = distance
+                z_hat[i, j] = distance
         return z_hat
 
     def _sense(self, particle: Tuple[float, float, float]) -> List[float]:
@@ -311,12 +294,9 @@ class ParticleFilter:
         # TODO: 2.6. Complete the missing function body with your code.
         for ray in rays:
             # Compute the intersection of the ray with the map.
-            intersection, distance = self._map.check_collision(ray, True)
+            _, distance = self._map.check_collision(ray, True)
             # Compute the distance to the intersection point
-            if distance > self._sensor_range:
-                z_hat.append(float("inf"))
-            else:
-                z_hat.append(distance)
+            z_hat.append(distance)
         return z_hat
 
     @staticmethod
@@ -366,11 +346,11 @@ class ParticleFilter:
         z_hat = np.array(z_hat)
 
         # Replace unavailable measurements and predictions with 1.25 times the sensor range
-        measurements = np.where(measurements > self._sensor_range, 1.25 * self._sensor_range, measurements)
+        measurements_2 = np.where(measurements > self._sensor_range, 1.25 * self._sensor_range, measurements)
         z_hat = np.where(z_hat > self._sensor_range, 1.25 * self._sensor_range, z_hat)    
         # Compute the probability product over all measurements
         # Using vectorized form of the Gaussian function assuming self._gaussian is also adapted for vectorized inputs
-        probabilities = self._gaussian(z_hat, self._sigma_z, measurements)
+        probabilities = self._gaussian(z_hat, self._sigma_z, measurements_2)
         return probabilities # (n_particles)
 
     def _measurement_probability(
