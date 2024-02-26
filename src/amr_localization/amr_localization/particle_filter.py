@@ -139,7 +139,9 @@ class ParticleFilter:
         weights = self._measurement_probability_vectorized(measurements, self._particles)
         # Normalize the weights
         alphas = np.array(weights) / np.sum(weights)
-        self._particles = np.random.choice(self._particles, self._particle_count, p=alphas)
+        # self._particles size (6500, 3)
+        indices = np.random.choice(np.arange(len(self._particles)), size=self._particle_count, replace=True, p=alphas)
+        self._particles = self._particles[indices]
 
     def plot(self, axes, orientation: bool = True):
         """Draws particles.
