@@ -42,7 +42,7 @@ class ParticleFilterNode(Node):
         self._subscribers2.append(message_filters.Subscriber(self, Odometry, "odom"))
         self._subscribers2.append(message_filters.Subscriber(self, RangeScan, "us_scan"))
 
-        ts = message_filters.ApproximateTimeSynchronizer(self._subscribers2, queue_size=10, slop=20)
+        ts = message_filters.ApproximateTimeSynchronizer(self._subscribers2, queue_size=10, slop=10)
         ts.registerCallback(self._compute_pose_callback)
 
         # TODO: 2.1. Create the /pose publisher (PoseStamped message).

@@ -25,6 +25,7 @@ class PurePursuit:
             y: Estimated robot y coordinate [m].
             theta: Estimated robot heading [rad]. 
             measurements : List of measurements from the sensors
+            crashed: if the robot has bumped into the wall
 
 
         Returns:
@@ -32,6 +33,8 @@ class PurePursuit:
             w: Angular velocity [rad/s].
 
         """
+        # Initialize previous angular velocity
+        prev_w = 0.0
         # TODO: 4.4. Complete the function body with your code (i.e., compute v and w).
         try:
             # 1. Find the closest path point to the current robot pose.
@@ -43,6 +46,14 @@ class PurePursuit:
             alpha = math.atan2(target_y - y, target_x - x) - theta
         
             w = 2 * v * math.sin(alpha) / self._lookahead_distance
+            #If bumping into wall, it must go back
+            # Backward movement logic based on crashed flag
+            if crashed:
+            # Reverse direction with a smaller velocity to avoid immediate collision
+                v = -0.2
+                w = prev_w  # Straight backward movement
+            # Store the current angular velocity for the next iteration
+            prev_w = w
         except ValueError:	
             v = 0.0
             w = 0.0

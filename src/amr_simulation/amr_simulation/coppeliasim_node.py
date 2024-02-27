@@ -49,7 +49,7 @@ class CoppeliaSimNode(Node):
         # TODO: 2.3. Synchronize the /pose and /cmd_vel subscribers if enable_localization is True.
         if enable_localization:
             self._subscribers.append(message_filters.Subscriber(self, PoseStamped, "pose"))
-        ts = message_filters.ApproximateTimeSynchronizer(self._subscribers, queue_size=10, slop=30)
+        ts = message_filters.ApproximateTimeSynchronizer(self._subscribers, queue_size=10, slop=10)
         ts.registerCallback(self._next_step_callback)
         # TODO: 1.4. Create the /odom (Odometry message) and /us_scan (RangeScan) publishers.
         self._odom_pub = self.create_publisher(Odometry, "odom", 10)

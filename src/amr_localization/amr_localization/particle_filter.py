@@ -126,33 +126,67 @@ class ParticleFilter:
                 self._particles[i] = (intersection[0], intersection[1], theta)
         pass
 
+
+    
     def resample(self, measurements: List[float]) -> None:
         """Samples a new set of particles.
 
         Args:
             measurements: Sensor measurements [m].
-
         """
-        # TODO: 2.9. Complete the function body with your code (i.e., replace the pass statement).
-        # Compute the weights for each particle based on the measurement probability.
+        reduction_factor = 0.5
+        # Compute weights and normalize
         weights = self._measurement_probability_vectorized(measurements, self._particles)
-        # Normalize the weights
         alphas = np.array(weights) / np.sum(weights)
 
-        # Cumulative sum of the weights
-        cumulative_sum = np.cumsum(alphas)
-        # Determine the positions of the indices to resample
-        positions = (np.arange(self._particle_count) + np.random.random()) / self._particle_count
+        # Determine target number of particles after reduction
+        target_count = int(self._particle_count * reduction_factor)
 
-        indexes = np.zeros(self._particle_count, "i")
-        cumulative_index = 0
-        for i, pos in enumerate(positions):
-            while cumulative_sum[cumulative_index] < pos:
-                cumulative_index += 1
-            indexes[i] = cumulative_index
+        # Resampling with SIR and particle pruning/merging
+        if target_count < self._particle_count:
+            cumulative_sum = np.cumsum(alphas)
+            #array of positions for resampling based on the particle count and a random element.
+            positions = (np.arange(self._particle_count) + np.random.random()) / self._particle_count 
 
-        # Resample the particles according to the indexes
-        self._particles = self._particles[indexes]
+            # (1) SIR with Replacement
+            indexes = []
+            for i in range(target_count):
+                index = np.random.choice(self._particle_count, p=alphas)
+                indexes.append(index)
+
+            # (2) Particle Merging
+            distance_threshold = 0.1  # Should be further adjusted
+            merged_particles = []
+            while indexes:
+                # Choose the first particle as the reference
+                reference_index = indexes.pop(0)
+                reference_particle = self._particles[reference_index]
+
+                # Find similar particles within the distance threshold
+                similar_indexes = [i for i in indexes if np.linalg.norm(self._particles[i] - reference_particle) < distance_threshold]
+
+                # Merge similar particles by averaging their states and weights
+                if similar_indexes:
+                    merged_particle = np.mean([self._particles[i] for i in similar_indexes] + [reference_particle], axis=0)
+                    merged_weight = np.sum([weights[i] for i in similar_indexes] + [weights[reference_index]])
+                    merged_particles.append((merged_particle, merged_weight))
+                    indexes = [i for i in indexes if i not in similar_indexes]
+                else:
+                    # Keep the reference particle if no similar ones found
+                    merged_particles.append((reference_particle, weights[reference_index]))
+
+            # Update particle set and weights with merged particles
+            self._particles = [p[0] for p in merged_particles]
+            weights = [p[1] for p in merged_particles]
+            alphas = np.array(weights) / np.sum(weights)
+
+            # Ensure target number of particles is reached (adjust if needed)
+            if len(self._particles) < target_count:
+                # Resample additional particles based on updated weights
+                additional_indexes = np.random.choice(len(self._particles), size=target_count - len(self._particles), p=alphas)
+                self._particles += [self._particles[i] for i in additional_indexes]
+
+            self._particle_count = len(self._particles)  # Update particle count
 
     def plot(self, axes, orientation: bool = True):
         """Draws particles.
