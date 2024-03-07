@@ -29,7 +29,7 @@ class ParticleFilterNode(Node):
         self.declare_parameter("particles", 1000)
         particles = self.get_parameter("particles").get_parameter_value().integer_value
 
-        self.declare_parameter("steps_btw_sense_updates", 10)
+        self.declare_parameter("steps_btw_sense_updates",25)
         steps_btw_sense_updates = (
             self.get_parameter("steps_btw_sense_updates").get_parameter_value().integer_value
         )

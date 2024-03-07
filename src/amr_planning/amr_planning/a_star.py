@@ -142,14 +142,14 @@ class AStar:
             for i in range(1, len(smoothed_path) - 1):
                 x, y = smoothed_path[i]
                 # Store the original value
-                x_old, y_old = x, y
+                
                 # Update the value
                 smoothed_path[i] = (
                     x + data_weight * (og_path[i][0] - x) + smooth_weight * (smoothed_path[i + 1][0] + smoothed_path[i - 1][0] - 2 * x),
                     y + data_weight * (og_path[i][1] - y) + smooth_weight * (smoothed_path[i + 1][1] + smoothed_path[i - 1][1] - 2 * y),
                 )
                 # Update the change
-                change += abs(x - x_old) + abs(y - y_old)
+                change += abs(smoothed_path[i][0] - x) + abs(smoothed_path[i][1] - y)
         return smoothed_path
 
     @staticmethod

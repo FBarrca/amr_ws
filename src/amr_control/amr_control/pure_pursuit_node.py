@@ -20,6 +20,8 @@ class PurePursuitNode(Node):
         super().__init__("pure_pursuit")
 
         # Parameters
+        self.previous_distance = 0.1
+        self.crashed = False
         self.declare_parameter("dt", 0.05)
         dt = self.get_parameter("dt").get_parameter_value().double_value
 
@@ -47,35 +49,49 @@ class PurePursuitNode(Node):
         self._pure_pursuit = PurePursuit(dt, lookahead_distance)
 
     def _compute_commands_callback(self, odom_msg: Odometry, us_msg: RangeScan, pose_msg: PoseStamped):
-        """Subscriber callback. Executes a pure pursuit controller and publishes v and w commands.
+            """Subscriber callback. Executes a pure pursuit controller and publishes v and w commands.
 
-        Starts to operate once the robot is localized.
+            Starts to operate once the robot is localized.
 
-        Args:
-            pose_msg: Message containing the estimated robot pose.
+            Args:
+                pose_msg: Message containing the estimated robot pose.
 
-        """
-        if pose_msg.localized:
-            # Parse pose
-            x = pose_msg.pose.position.x
-            y = pose_msg.pose.position.y
-            quat_w = pose_msg.pose.orientation.w
-            quat_x = pose_msg.pose.orientation.x
-            quat_y = pose_msg.pose.orientation.y
-            quat_z = pose_msg.pose.orientation.z
-            _, _, theta = quat2euler((quat_w, quat_x, quat_y, quat_z))
-            theta %= 2 * math.pi
-            # Parse odometry vel
-            v = odom_msg.twist.twist.linear.x
-            crashed = True if v < 0.1 else False
-            # Parse ultrasonic sensor readings
-            measurements = us_msg.ranges
-            # Execute pure pursuit
-            v, w = self._pure_pursuit.compute_commands(x, y, theta, crashed, measurements)
-            self.get_logger().info(f"Commands: v = {v:.3f} m/s, w = {w:+.3f} rad/s")
+            """
+            if pose_msg.localized:
+                # Parse pose
+                x = pose_msg.pose.position.x
+                y = pose_msg.pose.position.y
+                quat_w = pose_msg.pose.orientation.w
+                quat_x = pose_msg.pose.orientation.x
+                quat_y = pose_msg.pose.orientation.y
+                quat_z = pose_msg.pose.orientation.z
+                _, _, theta = quat2euler((quat_w, quat_x, quat_y, quat_z))
+                theta %= 2 * math.pi
+                # Parse odometry vel
+                v = odom_msg.twist.twist.linear.x
+                # Parse ultrasonic sensor readings
+                measurements = us_msg.ranges
+                
+                
+                #previous distance
+                front_distance = (us_msg[3]+us_msg[4])/2
+                
+                difference_distance = abs(front_distance-self.previous_distance)
+                
+                if difference_distance < 0.01 and front_distance < 0.2:
+                    self.crashed = True 
+                if self.crashed and front_distance > 0.35:
+                    self.crashed = False
+                    
+                #See if crashed
+                self.previous_distance = front_distance
+                
+                # Execute pure pursuit
+                v, w = self._pure_pursuit.compute_commands(x, y, theta, self._logger, measurements,self.crashed)
+                self.get_logger().info(f"Commands: v = {v:.3f} m/s, w = {w:+.3f} rad/s")
 
-            # Publish
-            self._publish_velocity_commands(v, w)
+                # Publish
+                self._publish_velocity_commands(v, w)
 
     def _path_callback(self, path_msg: Path):
         """Subscriber callback. Saves the path the pure pursuit controller has to follow.
