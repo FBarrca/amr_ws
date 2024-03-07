@@ -135,7 +135,7 @@ class ParticleFilter:
         Args:
             measurements: Sensor measurements [m].
         """
-        reduction_factor = 0.5
+        reduction_factor = 1
         # Compute weights and normalize
         weights = self._measurement_probability_vectorized(measurements, self._particles)
         alphas = np.array(weights) / np.sum(weights)
@@ -184,7 +184,7 @@ class ParticleFilter:
             # Ensure target number of particles is reached (adjust if needed)
             if len(self._particles) < target_count:
                 # Resample additional particles based on updated weights
-                additional_indexes = np.ra4ndom.choice(len(self._particles), size=target_count - len(self._particles), p=alphas)
+                additional_indexes = np.random.choice(len(self._particles), size=target_count - len(self._particles), p=alphas)
                 self._particles += [self._particles[i] for i in additional_indexes]
 
             self._particle_count = len(self._particles)  # Update particle count
