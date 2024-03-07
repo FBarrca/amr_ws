@@ -129,69 +129,52 @@ class ParticleFilter:
 
 
     
-    def resample(self, measurements: List[float]) -> None:
+    def resample(self, measurements: List[float], localized:bool) -> None:
         """Samples a new set of particles.
 
         Args:
             measurements: Sensor measurements [m].
         """
-        reduction_factor = 1
+        reduction_factor = float(0.9)
         # Compute weights and normalize
         weights = self._measurement_probability_vectorized(measurements, self._particles)
         alphas = np.array(weights) / np.sum(weights)
+        # SIR with Replacement
+        indexes = []
+        if localized:
+            indexes = np.random.choice(np.arange(len(self._particles)), size=self._particle_count, replace=True, p=alphas)
+        else:
+            indexes = self.systematic_resampling(alphas)
 
-        # Determine target number of particles after reduction
-        target_count = int(self._particle_count * reduction_factor)
+        # Update particle set 
+        self._particles = self._particles[indexes]
+        
+        self._particle_count = len(self._particles)  # Update particle count
+    def systematic_resampling(self, alphas) -> np.ndarray:
+        """
+       Stratified resampling on the particles based on their weights.
+        Returns:
+            np.ndarray: Indices of the resampled particles.
+        """
+        num_particles = len(self._particles)
 
-        # Resampling with SIR and particle pruning/merging
-        if target_count < self._particle_count:
-            cumulative_sum = np.cumsum(alphas)
-            #array of positions for resampling based on the particle count and a random element.
-            positions = (np.arange(self._particle_count) + np.random.random()) / self._particle_count 
+        vals = []
+        vals.append(alphas[0])
 
-            # (1) SIR with Replacement
-            indexes = []
-            for i in range(target_count):
-                index = np.random.choice(self._particle_count, p=alphas)
-                indexes.append(index)
+        for i in range(num_particles - 1):
+            vals.append(vals[i] + alphas[i + 1])
 
-            # (2) Particle Merging
-            distance_threshold = 0.1  # Should be further adjusted
-            merged_particles = []
-            while indexes:
-                # Choose the first particle as the reference
-                reference_index = indexes.pop(0)
-                reference_particle = self._particles[reference_index]
+        start = np.random.uniform(0, 1 / num_particles)
 
-                # Find similar particles within the distance threshold
-                similar_indexes = [i for i in indexes if np.linalg.norm(self._particles[i] - reference_particle) < distance_threshold]
+        resample_indices = []
+        for i in range(num_particles):
+            c = start + i / num_particles
+            for j in range(num_particles):
+                if c <= vals[j]:
+                    resample_indices.append(j)
+                    break
 
-                # Merge similar particles by averaging their states and weights
-                if similar_indexes:
-                    merged_particle = np.mean([self._particles[i] for i in similar_indexes] + [reference_particle], axis=0)
-                    merged_weight = np.sum([weights[i] for i in similar_indexes] + [weights[reference_index]])
-                    merged_particles.append((merged_particle, merged_weight))
-                    indexes = [i for i in indexes if i not in similar_indexes]
-                else:
-                    # Keep the reference particle if no similar ones found
-                    merged_particles.append((reference_particle, weights[reference_index]))
-
-            # Update particle set and weights with merged particles
-            self._particles = [p[0] for p in merged_particles]
-            weights = [p[1] for p in merged_particles]
-            alphas = np.array(weights) / np.sum(weights)
-
-            # Ensure target number of particles is reached (adjust if needed)
-            if len(self._particles) < target_count:
-                # Resample additional particles based on updated weights
-                additional_indexes = np.random.choice(len(self._particles), size=target_count - len(self._particles), p=alphas)
-                self._particles += [self._particles[i] for i in additional_indexes]
-
-            self._particle_count = len(self._particles)  # Update particle count
-        # self._particles size (6500, 3)
-        #indices = np.random.choice(np.arange(len(self._particles)), size=self._particle_count, replace=True, p=alphas)
-        #self._particles = self._particles[indices]
-
+        return resample_indices
     def plot(self, axes, orientation: bool = True):
         """Draws particles.
 

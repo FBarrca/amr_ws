@@ -119,7 +119,8 @@ class ParticleFilterNode(Node):
 
         if self._localized or not self._steps % self._steps_btw_sense_updates:
             start_time = time.perf_counter()
-            self._particle_filter.resample(z_us)
+            # Distinguish between localized and non-localized states for different resampling strategies
+            self._particle_filter.resample(z_us, self._localized )
             sense_time = time.perf_counter() - start_time
 
             self.get_logger().info(f"Sense step time: {sense_time:6.3f} s")
