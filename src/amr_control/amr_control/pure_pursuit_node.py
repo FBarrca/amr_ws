@@ -44,7 +44,7 @@ class PurePursuitNode(Node):
 
         # Publishers
         self._publisher = self.create_publisher(TwistStamped, "cmd_vel", 10)
-
+        self._pose_publisher = self.create_publisher(PoseStamped, "pose_recalc", 10)
         # Attribute and object initializations
         self._pure_pursuit = PurePursuit(dt, lookahead_distance)
 
@@ -74,7 +74,7 @@ class PurePursuitNode(Node):
                 
                 
                 #previous distance
-                front_distance = (us_msg[3]+us_msg[4])/2
+                front_distance = min(us_msg.ranges[2],us_msg.ranges[3],us_msg.ranges[4],us_msg.ranges[5])
                 
                 difference_distance = abs(front_distance-self.previous_distance)
                 
@@ -82,6 +82,8 @@ class PurePursuitNode(Node):
                     self.crashed = True 
                 if self.crashed and front_distance > 0.35:
                     self.crashed = False
+                    # send message telling to localize again!
+                    self.publish_not_localized()
                     
                 #See if crashed
                 self.previous_distance = front_distance
@@ -118,7 +120,19 @@ class PurePursuitNode(Node):
         msg.twist.linear.x = float(v)
         msg.twist.angular.z = float(w)
         self._publisher.publish(msg)
+    def publish_not_localized(self):
+        """Publishes the robot's pose estimate in a custom amr_msgs.msg.PoseStamped message.
 
+        Args:
+            x_h: x coordinate estimate [m].
+            y_h: y coordinate estimate [m].
+            theta_h: Heading estimate [rad].
+
+        """
+        pose_msg = PoseStamped()
+        pose_msg.header.frame_id = "map"
+        pose_msg.localized = False
+        self._pose_publisher.publish(pose_msg)
 
 def main(args=None):
     rclpy.init(args=args)

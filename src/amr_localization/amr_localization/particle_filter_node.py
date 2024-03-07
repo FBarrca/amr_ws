@@ -36,7 +36,8 @@ class ParticleFilterNode(Node):
 
         self.declare_parameter("world", "lab02")
         world = self.get_parameter("world").get_parameter_value().string_value
-
+        # Add a pose_recalc subscriber
+        self._pose_recalc_subscriber = self.create_subscription(PoseStamped, "pose_recalc", self._recieve_order_to_relocalize, 10)
         # Subscribers
         self._subscribers2: list[message_filters.Subscriber] = []
         self._subscribers2.append(message_filters.Subscriber(self, Odometry, "odom"))
@@ -151,7 +152,10 @@ class ParticleFilterNode(Node):
 
         if self._enable_plot:
             self._particle_filter.show("Move", save_figure=True)
-
+    def _recieve_order_to_relocalize(self,pose_msg: PoseStamped):
+        self._localized = False
+        self._particle_filter.reinit_particles()
+        self._publish_pose_estimate(float("inf"), float("inf"), float("inf"))
     def _publish_pose_estimate(self, x_h: float, y_h: float, theta_h: float) -> None:
         """Publishes the robot's pose estimate in a custom amr_msgs.msg.PoseStamped message.
 

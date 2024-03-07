@@ -165,14 +165,9 @@ class ParticleFilter:
             vals.append(vals[i] + alphas[i + 1])
 
         start = np.random.uniform(0, 1 / num_particles)
+        c_values = start + np.arange(num_particles) / num_particles
+        resample_indices = np.searchsorted(vals, c_values)
 
-        resample_indices = []
-        for i in range(num_particles):
-            c = start + i / num_particles
-            for j in range(num_particles):
-                if c <= vals[j]:
-                    resample_indices.append(j)
-                    break
 
         return resample_indices
     def plot(self, axes, orientation: bool = True):
@@ -249,8 +244,27 @@ class ParticleFilter:
             file_name = str(self._iteration).zfill(4) + " " + title.lower() + ".png"
             file_path = os.path.join(save_path, file_name)
             figure.savefig(file_path)
-
-    def _init_particles(self, particle_count: int) -> np.ndarray:
+    def reinit_particles(self) -> None:
+        # improvise adapt overcome
+        
+        particle_count = self._initial_particle_count
+        
+        particles = np.empty((particle_count, 3), dtype=object)
+        x_min, y_min, x_max, y_max = self._map.bounds()
+        # TODO: 2.4. Complete the missing function body with your code.
+        for i in range(particle_count):
+            while True:
+                x = np.random.uniform(x_min, x_max)
+                y = np.random.uniform(y_min, y_max)
+                if self._map.contains((x, y)):
+                    break
+            theta = np.random.choice([0, np.pi / 2, np.pi, 3 * np.pi / 2])
+            # print(f"Particle {i}: ({x:.2f}, {y:.2f}, {theta:.2f})")
+            particles[i] = (x, y, theta)
+        self._particles = particles 
+        
+        
+    def _init_particles(self, particle_count) -> np.ndarray:
         """Draws N random valid particles.
 
         The particles are guaranteed to be inside the map and
@@ -262,6 +276,10 @@ class ParticleFilter:
         Returns: A NumPy array of tuples (x, y, theta) [m, m, rad].
 
         """
+        # improvise adapt overcome
+        if particle_count == 0:
+            particle_count = self._initial_particle_count
+        
         particles = np.empty((particle_count, 3), dtype=object)
         x_min, y_min, x_max, y_max = self._map.bounds()
         # TODO: 2.4. Complete the missing function body with your code.

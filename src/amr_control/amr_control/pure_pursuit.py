@@ -63,6 +63,7 @@ class PurePursuit:
             if crashed:
                 v = -v
                 w = 0
+                
            
         except ValueError:	
             v = 0.0
