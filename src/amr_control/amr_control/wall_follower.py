@@ -15,6 +15,7 @@ class WallFollower:
         self._dt: float = dt
         self._i_error = 0
         self._prev_error = 0
+        self._cant_giro = 0
 
     def compute_commands(self, z_us: List[float], z_v: float, z_w: float) -> Tuple[float, float]:
         """Wall following exploration algorithm.
