@@ -50,8 +50,8 @@ class PurePursuit:
             # Backward movement logic based on crashed flag
             
             if flag:
-                self._lookahead_distance =min(((target_x - x)^2 + (target_y-y)^2),0.8)
-                log.warn("Look ahead distance",self._lookahead_distance)
+                self._lookahead_distance =min(((target_x - x)**2 + (target_y-y)**2),0.8)
+            
                 
             if alpha > math.pi :
                 alpha -= 2*math.pi
@@ -134,7 +134,7 @@ class PurePursuit:
             if distance > self._lookahead_distance:
                 target_xy = (px, py)
                 break
-            if idx == len(self._path[origin_idx:]):
+            if idx == len(self._path[origin_idx:]) - 1:
                 target_xy = (px, py)
                 return target_xy, True 
 
