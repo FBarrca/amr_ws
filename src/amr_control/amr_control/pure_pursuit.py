@@ -40,11 +40,14 @@ class PurePursuit:
             closest_xy, closest_idx = self._find_closest_point(x, y)
             # 2. Find the target point based on the lookahead distance.
             (target_x , target_y),flag = self._find_target_point(closest_xy, closest_idx)
-            v = 0.5
+           
             
             alpha = math.atan2(target_y - y, target_x - x) - theta
             alpha = alpha %(2*math.pi)
-              
+             # Make v inversely proportional to alpha as to speed up when alpha is small
+            v = 1 / (1 + abs(alpha)/10) # Between 0.241 and 1 based on alpha
+            
+            
             w = 2 * v * math.sin(alpha) / self._lookahead_distance
             #If bumping into wall, it must go back
             # Backward movement logic based on crashed flag

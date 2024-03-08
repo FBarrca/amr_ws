@@ -78,7 +78,7 @@ class PurePursuitNode(Node):
                 
                 difference_distance = abs(front_distance-self.previous_distance)
                 
-                if difference_distance < 0.01 and front_distance < 0.2:
+                if difference_distance < 0.01 and front_distance < 0.1:
                     self.crashed = True 
                 if self.crashed and front_distance > 0.35:
                     self.crashed = False

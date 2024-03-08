@@ -155,7 +155,7 @@ class ParticleFilterNode(Node):
     def _recieve_order_to_relocalize(self,pose_msg: PoseStamped):
         self._localized = False
         self._particle_filter.reinit_particles()
-        self._publish_pose_estimate(float("inf"), float("inf"), float("inf"))
+        self._publish_pose_estimate(-1.0, 0.0, float("inf"))
     def _publish_pose_estimate(self, x_h: float, y_h: float, theta_h: float) -> None:
         """Publishes the robot's pose estimate in a custom amr_msgs.msg.PoseStamped message.
 
